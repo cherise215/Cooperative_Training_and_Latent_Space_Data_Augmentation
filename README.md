@@ -45,18 +45,19 @@ For more details please see our paper on [arXiv](https://arxiv.org/abs/2107.0107
 
 ## Set Up
 
+- Git clone this project
 - Install PyTorch and other required python libraries with:
   `pip install -r requirements.txt`
 - Install torch sample for data augmentation
   `pip install git+https://github.com/ozan-oktay/torchsample/`
+- Download the trained models checkpoints [link](https://drive.google.com/file/d/1UFkkndyU79Lt0u92CAqmXKzknLj2_ZgC/view?usp=sharing) and put it under the project.
 
 ## Data
 
 - Download Datasets:
   - [ACDC dataset](https://www.creatis.insa-lyon.fr/Challenge/acdc/databases.html) for training and intra-domain testing
   - [M&Ms dataset](https://www.ub.edu/mnms/) for cross-domain testing
-  - [ACDC-C dataset](https://drive.google.com/file/d/1QEpe00AaUzrRPFCSNuOsoF7KHwYG5_oB/view?usp=sharing) for robustness test. We use [TorchIO](https://torchio.readthedocs.io/) to generate corrupted ACDC test data.
-    - [code](medseg/dataset_loader/generate_artefacted_data.py).
+  - [ACDC-C dataset](https://drive.google.com/file/d/1QEpe00AaUzrRPFCSNuOsoF7KHwYG5_oB/view?usp=sharing) for robustness test. We use [TorchIO](https://torchio.readthedocs.io/) to generate corrupted ACDC test data [sample code](medseg/dataset_loader/generate_artefacted_data.py).
 - Data preprocessing[[example code](medseg/dataset_loader/acdc_preprocess.py)]:
 
   - Intensity normalization: image intensities are normalized to (0,1)
