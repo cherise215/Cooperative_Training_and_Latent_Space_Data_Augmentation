@@ -127,6 +127,6 @@ venv.bak/
 lightning_logs/
 MNIST
 .DS_Store
-saved/*
-scripts/*
-output/*
+saved/
+scripts/
+output/
