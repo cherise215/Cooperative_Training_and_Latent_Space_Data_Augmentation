@@ -30,7 +30,8 @@ def normalize_minmax_data(image_data):
     image_data[image_data < min_val_2p] = min_val_2p
     image_data[image_data > max_val_98p] = max_val_98p
 
-    final_image_data = (image_data - min_val_2p) / (1e-10 + max_val_98p - min_val_2p)
+    final_image_data = (image_data - min_val_2p) / \
+        (1e-10 + max_val_98p - min_val_2p)
 
     return final_image_data
 
@@ -45,7 +46,8 @@ def resample_by_spacing(im, new_spacing, interpolator=sitk.sitkLinear, keep_z_sp
     '''
 
     scaling = np.array(new_spacing) / (1.0 * (np.array(im.GetSpacing())))
-    new_size = np.round((np.array(im.GetSize()) / scaling)).astype("int").tolist()
+    new_size = np.round((np.array(im.GetSize()) / scaling)
+                        ).astype("int").tolist()
     origin_z = im.GetSize()[2]
 
     if keep_z_spacing:
@@ -72,7 +74,8 @@ def get_all_image_array_from_datastet(dataset, crop_size=[192, 192]):
     for id in range(dataset.patient_number):
         data = dataset.get_patient_data_for_testing(id, crop_size=crop_size)
         img_array_flattened = data['image'].numpy()
-        img_array_flattened = img_array_flattened.reshape(img_array_flattened.shape[0], -1).squeeze()
+        img_array_flattened = img_array_flattened.reshape(
+            img_array_flattened.shape[0], -1).squeeze()
         if img_list is None:
             img_list = img_array_flattened
         else:

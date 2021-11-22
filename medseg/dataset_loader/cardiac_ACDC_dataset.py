@@ -19,7 +19,7 @@ import torch
 
 from medseg.dataset_loader.base_segmentation_dataset import BaseSegDataset
 from medseg.dataset_loader.ACDC_few_shot_cv_settings import get_ACDC_split_policy
-from medseg.common_utils.basic_operations import load_img_label_from_path, crop_or_pad
+from medseg.common_utils.basic_operations import load_img_label_from_path, crop_or_pad, rescale_intensity
 DATASET_NAME = 'ACDC'
 IDX2CLASS_DICT = {
     0: 'BG',
@@ -78,7 +78,7 @@ class CardiacACDCDataset(BaseSegDataset):
         self.subset_name = subset_name
         self.image_format_name = image_format_name
         self.label_format_name = label_format_name
-        self.normalize = normalize
+        self.normalize = normalize  # normalize 3D data if data are raw. default: false
         self.new_spacing = new_spacing
 
         if lazy_load is True:
@@ -94,7 +94,8 @@ class CardiacACDCDataset(BaseSegDataset):
         self.patient_number = len(self.patient_id_list)
         self.slice_id = 0
         self.index = 0  # index for selecting which slices
-        self.dataset_name = DATASET_NAME + '_{}_{}_{}'.format(subset_name, data_setting_name, split)
+        self.dataset_name = DATASET_NAME + \
+            '_{}_{}_{}'.format(subset_name, data_setting_name, split)
         if self.split == 'train':
             self.dataset_name += str(cval)
 
@@ -128,7 +129,8 @@ class CardiacACDCDataset(BaseSegDataset):
         'image': ndarray,H*W*CH, CH =1, for gray images
         'label': ndaray, H*W
         '''
-        assert len(self.patient_id_list) > 0, "no data found in the disk at {}".format(self.root_dir)
+        assert len(self.patient_id_list) > 0, "no data found in the disk at {}".format(
+            self.root_dir)
 
         patient_id, slice_id = self.find_pid_slice_id(index)
 
@@ -181,13 +183,15 @@ class CardiacACDCDataset(BaseSegDataset):
         :return: dataset size, a list of pids for training/testing/validation, and a dict for retrieving patient id and slice id.
         '''
 
-        patient_id_list = get_ACDC_split_policy(identifier=self.data_setting_name, cval=self.cval)[self.split]
+        patient_id_list = get_ACDC_split_policy(
+            identifier=self.data_setting_name, cval=self.cval)[self.split]
         # print ('{} set has {} patients'.format(self.split,len(patient_id_list)))
         index2pid_dict = {}
         index2slice_dict = {}
         cur_ind = 0
         for pid in patient_id_list:
-            img_path = os.path.join(self.root_dir, self.image_format_name.format(p_id=pid))
+            img_path = os.path.join(
+                self.root_dir, self.image_format_name.format(p_id=pid))
             if not os.path.exists(img_path):
                 continue
             ndarray = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
@@ -199,7 +203,7 @@ class CardiacACDCDataset(BaseSegDataset):
         datasize = cur_ind
         return datasize, patient_id_list, index2pid_dict, index2slice_dict
 
-    def get_patient_data_for_testing(self, pid_index, crop_size=None):
+    def get_patient_data_for_testing(self, pid_index, crop_size=None, normalize_2D=True):
         '''
         prepare test volumetric data
         :param pad_size:[H',W']
@@ -210,14 +214,19 @@ class CardiacACDCDataset(BaseSegDataset):
         'label': torch tensor data: N*H'*W'
         }
         '''
+        # print('here')
         self.p_id = self.patient_id_list[pid_index]
         image, label, sitkImage, sitkLabel = self.load_patientImage_from_nrrd(
             self.p_id, new_spacing=self.new_spacing, normalize=self.normalize)
         if crop_size is not None:
             crop_size = crop_size.copy()
-            image, label, h_s, w_s, h, w = crop_or_pad(image, crop_size, label=label)
+            image, label, h_s, w_s, h, w = crop_or_pad(
+                image, crop_size, label=label)
         image_tensor = torch.from_numpy(image[:, np.newaxis, :, :]).float()
         label_tensor = torch.from_numpy(label[:, :, :]).long()
+        image_tensor = image_tensor.contiguous()
+        if normalize_2D:
+            image_tensor = rescale_intensity(image_tensor, 0, 1)
         dict = {
             'image': image_tensor,
             'label': label_tensor
@@ -248,7 +257,8 @@ if __name__ == '__main__':
     dataset = CardiacACDCDataset(data_setting_name='standard', split='validate',
                                  transform=tr['train'], num_classes=4, right_ventricle_seg=True,
                                  root_dir='/vol/medic01/users/cc215/Dropbox/projects/DeformADA/Data/bias_corrected_and_normalized')
-    train_loader = DataLoader(dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
+    train_loader = DataLoader(
+        dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
 
     for i, item in enumerate(dataset):
         img = item['origin_image']

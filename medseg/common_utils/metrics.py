@@ -24,7 +24,8 @@ class runningScore(object):
 
     def update(self, label_trues, label_preds):
         for lt, lp in zip(label_trues, label_preds):
-            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten(), self.n_classes)
+            self.confusion_matrix += self._fast_hist(
+                lt.flatten(), lp.flatten(), self.n_classes)
 
     def get_scores(self):
         """Returns accuracy score evaluation result.
@@ -37,7 +38,8 @@ class runningScore(object):
         acc = np.diag(hist).sum() / hist.sum()
         acc_cls = np.diag(hist) / hist.sum(axis=1)
         acc_cls = np.nanmean(acc_cls)
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) +
+                              hist.sum(axis=0) - np.diag(hist))
         mean_iu = np.nanmean(iu)
         freq = hist.sum(axis=1) / hist.sum()
         fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
@@ -71,7 +73,8 @@ class runningCustomScore(object):
 
     def update(self, label_trues, label_preds, voxel_spacing=None):
         for lt, lp in zip(label_trues, label_preds):
-            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten(), self.n_classes)
+            self.confusion_matrix += self._fast_hist(
+                lt.flatten(), lp.flatten(), self.n_classes)
             # Clip the value to compute the volumes
             gt = np.clip(label_trues, 0, 1)
             pred = np.clip(label_preds, 0, 1)
@@ -80,7 +83,8 @@ class runningCustomScore(object):
                 assert voxel_spacing is not None, 'please define voxel '
                 if np.sum(gt) > 0 and np.sum(pred) > 0:
                     print(voxel_spacing)
-                    self.hd_score.append(hd(result=pred, reference=gt, voxelspacing=voxel_spacing, connectivity=1))
+                    self.hd_score.append(
+                        hd(result=pred, reference=gt, voxelspacing=voxel_spacing, connectivity=1))
 
     def get_scores(self):
         """Returns accuracy score evaluation result.
@@ -93,7 +97,8 @@ class runningCustomScore(object):
         acc = np.diag(hist).sum() / hist.sum()
         acc_cls = np.diag(hist) / hist.sum(axis=1)
         acc_cls = np.nanmean(acc_cls)
-        iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
+        iu = np.diag(hist) / (hist.sum(axis=1) +
+                              hist.sum(axis=0) - np.diag(hist))
         mean_iu = np.nanmean(iu)
         freq = hist.sum(axis=1) / hist.sum()
         fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
@@ -185,9 +190,10 @@ class runningMySegmentationScore(object):
         assert preds.shape == gts.shape, 'pid :{} shape not consistent: pred {} vs gt {}'.format(
             pid, preds.shape, gts.shape)
         if not voxel_spacing is None:
-            assert len(voxel_spacing) == 3, 'check voxel spacing, {}'.format(voxel_spacing)
+            assert len(voxel_spacing) == 3, 'check voxel spacing, {}'.format(
+                voxel_spacing)
         else:
-            #print ('use default voxel spacing with 1.0 along each direction')
+            # print ('use default voxel spacing with 1.0 along each direction')
             voxel_spacing = np.ones(gts.shape, dtype=np.float32)
         n, h, w = preds.shape
 
@@ -237,10 +243,12 @@ class runningMySegmentationScore(object):
 
                 if metric == 'VolError' and c > 0:
                     # (pred-gt)/gt
-                    score = (np.count_nonzero(pred_c_i) - np.count_nonzero(gt_c_i)) / (1.0 * np.count_nonzero(gt_c_i))
+                    score = (np.count_nonzero(
+                        pred_c_i) - np.count_nonzero(gt_c_i)) / (1.0 * np.count_nonzero(gt_c_i))
 
                 self.multi_scores[class_name + '_' + metric].append(score)
-                one_patient_result += [score] if not isinstance(score, list) else score
+                one_patient_result += [score] if not isinstance(
+                    score, list) else score
         self.tables.append(one_patient_result)
         return one_patient_result
 
@@ -304,7 +312,8 @@ def cal_cls_acc(pred, gt):
 class runningAPScore(object):
 
     def __init__(self, thresh_hold, imagesize):
-        self.thresh_hold = 2  # if two center points are close to each other within the range of n pixels.
+        # if two center points are close to each other within the range of n pixels.
+        self.thresh_hold = 2
         self.image_size = imagesize
         self.d_records = []
         self.FP = 0.

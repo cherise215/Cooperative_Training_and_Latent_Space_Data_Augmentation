@@ -4,7 +4,7 @@ import SimpleITK as sitk
 import torch
 
 from medseg.dataset_loader.base_segmentation_dataset import BaseSegDataset
-from medseg.common_utils.basic_operations import load_img_label_from_path, crop_or_pad
+from medseg.common_utils.basic_operations import load_img_label_from_path, crop_or_pad, rescale_intensity
 DATASET_NAME = 'CardiacMMDataset'
 IDX2CLASS_DICT = {
     0: 'BG',
@@ -96,7 +96,8 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         'image': ndarray,H*W*CH, CH =1, for gray images
         'label': ndaray, H*W
         '''
-        assert len(self.patient_id_list) > 0, "no data found in the disk at {}".format(self.root_dir)
+        assert len(self.patient_id_list) > 0, "no data found in the disk at {}".format(
+            self.root_dir)
 
         patient_id, slice_id = self.find_pid_slice_id(index)
 
@@ -104,6 +105,10 @@ class Cardiac_MM_Dataset(BaseSegDataset):
             print(patient_id)
         image, label, sitkImage, sitkLabel = self.load_patientImage_from_nrrd(
             patient_id, new_spacing=self.new_spacing, normalize=self.normalize)
+
+        image = image[slice_id]
+        label = label[slice_id]
+
         if len(image.shape) == 2:
             image = image[:, :, np.newaxis]
         if self.debug:
@@ -136,8 +141,13 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         index2pid_dict = {}
         index2slice_dict = {}
         cur_ind = 0
+        not_exists_ids = []
         for pid in patient_id_list:
-            img_path = os.path.join(self.root_dir, self.image_format_name.format(p_id=pid))
+            img_path = os.path.join(
+                self.root_dir, self.image_format_name.format(p_id=pid))
+            if not os.path.exists(img_path):
+                not_exists_ids.append(pid)
+                continue
             ndarray = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
             num_slices = ndarray.shape[0]
             for cnt in range(num_slices):
@@ -145,9 +155,11 @@ class Cardiac_MM_Dataset(BaseSegDataset):
                 index2slice_dict[cur_ind] = cnt
                 cur_ind += 1
         datasize = cur_ind
+        patient_id_list = [
+            p for p in patient_id_list if not p in not_exists_ids]
         return datasize, patient_id_list, index2pid_dict, index2slice_dict
 
-    def get_patient_data_for_testing(self, pid_index, crop_size=None):
+    def get_patient_data_for_testing(self, pid_index, crop_size=None, normalize_2D=True):
         '''
         prepare test volumetric data
         :param pad_size:[H',W']
@@ -164,9 +176,11 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         if crop_size is not None:
             image, label, h_s, w_s, h, w = crop_or_pad(image, crop_size, label)
 
-        label = self.formulate_labels(label)
+        # label = self.formulate_labels(label)
         image_tensor = torch.from_numpy(image[:, np.newaxis, :, :]).float()
         label_tensor = torch.from_numpy(label[:, :, :]).long()
+        if normalize_2D:
+            image_tensor = rescale_intensity(image_tensor, 0, 1)
         dict = {
             'image': image_tensor,
             'label': label_tensor
@@ -183,9 +197,9 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         '''
         if 'ES' in self.image_format_name:
             return self.p_id + '_ES'
-        if 'ED' in self.image_format_name:
+        elif 'ED' in self.image_format_name:
             return self.p_id + '_ED'
-        return self.p_id
+        return str(self.p_id)
 
 
 if __name__ == '__main__':
@@ -197,8 +211,10 @@ if __name__ == '__main__':
     crop_size = (192, 192)
     tr = Transformations(data_aug_policy_name='ACDC_affine_elastic_intensity_v2',
                          pad_size=image_size, crop_size=crop_size).get_transformation()
-    dataset = Cardiac_MM_Dataset(transform=tr['train'], num_classes=4, myocardium_seg=False)
-    train_loader = DataLoader(dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
+    dataset = Cardiac_MM_Dataset(
+        transform=tr['train'], num_classes=4, myocardium_seg=False)
+    train_loader = DataLoader(
+        dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
 
     for i, item in enumerate(dataset):
         img = item['origin_image']
@@ -220,7 +236,8 @@ if __name__ == '__main__':
         plt.subplot(144)
         plt.imshow(label.numpy())
         plt.colorbar()
-        plt.savefig('/vol/medic01/users/cc215/Dropbox/projects/DeformADA/result/log/data_vis/cardiacMM_img_{}.png'.format(str(i)))
+        plt.savefig(
+            '/vol/medic01/users/cc215/Dropbox/projects/DeformADA/result/log/data_vis/cardiacMM_img_{}.png'.format(str(i)))
         plt.clf()
         if i >= 10:
             break

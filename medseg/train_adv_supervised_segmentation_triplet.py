@@ -54,8 +54,10 @@ def get_batch(dataiter, train_loader, experiment_opt, use_gpu):
         image_orig, gt_orig = labelled_batch['origin_image'], labelled_batch['origin_label']
         image_l = torch.cat([image_l, image_orig], dim=0)
         label_l = torch.cat([label_l, gt_orig], dim=0)
-    image_l = makeVariable(image_l, type='float', use_gpu=use_gpu, requires_grad=False)
-    label_l = makeVariable(label_l, type='long', use_gpu=use_gpu, requires_grad=False)
+    image_l = makeVariable(image_l, type='float',
+                           use_gpu=use_gpu, requires_grad=False)
+    label_l = makeVariable(label_l, type='long',
+                           use_gpu=use_gpu, requires_grad=False)
     return image_l, label_l, unlabelled_batch, dataiter
 
 
@@ -154,7 +156,8 @@ def train_network(experiment_name, dataset,
 
                 clean_image_l, label_l, unlabelled_batch, dataiter = get_batch(
                     dataiter, train_loader, experiment_opt, use_gpu)
-                clean_image_l = makeVariable(clean_image_l, use_gpu=True, requires_grad=False, type='float')
+                clean_image_l = makeVariable(
+                    clean_image_l, use_gpu=True, requires_grad=False, type='float')
                 batch_4d_size = clean_image_l.size()
                 # add noise to input to train the FTN (same as training a denoising autoencoder)
                 noise = 0.05 * torch.randn(batch_4d_size[0], batch_4d_size[1], batch_4d_size[2],
@@ -165,7 +168,7 @@ def train_network(experiment_name, dataset,
                 seg_loss, image_recon_loss, gt_recon_loss, shape_recon_loss = segmentation_solver.standard_training(
                     clean_image_l, label_l, perturbed_image=image_l, separate_training=separate_training)
 
-                standard_loss = seg_loss + image_recon_loss + shape_recon_loss
+                standard_loss = seg_loss + image_recon_loss + shape_recon_loss+gt_recon_loss
                 loss_dict['loss/standard/total'] += standard_loss.item()
                 loss_dict['loss/standard/seg'] += seg_loss.item()
                 loss_dict['loss/standard/image'] += image_recon_loss.item()
@@ -182,10 +185,10 @@ def train_network(experiment_name, dataset,
                                                                                                    corrupted_seg_DA_config=corrupted_seg_DA_config
                                                                                                    )
 
-                    seg_supervised_loss, corrupted_image_recon_loss, shape_recon_loss_2, corrupted_shape_recon_loss = segmentation_solver.hard_example_traininng(perturbed_image=perturbed_image_0,
-                                                                                                                                                                 perturbed_seg=perturbed_y_0,
-                                                                                                                                                                 clean_image_l=clean_image_l, label_l=label_l,
-                                                                                                                                                                 separate_training=separate_training)
+                    seg_supervised_loss, corrupted_image_recon_loss, shape_recon_loss_2, corrupted_shape_recon_loss = segmentation_solver.hard_example_training(perturbed_image=perturbed_image_0,
+                                                                                                                                                                perturbed_seg=perturbed_y_0,
+                                                                                                                                                                clean_image_l=clean_image_l, label_l=label_l,
+                                                                                                                                                                separate_training=separate_training)
 
                     hard_loss = seg_supervised_loss + corrupted_image_recon_loss + \
                         shape_recon_loss_2 + corrupted_shape_recon_loss
@@ -216,7 +219,8 @@ def train_network(experiment_name, dataset,
                 if debug:
                     print('logging w. tensorboard')
                 for loss_name, loss_value in loss_dict.items():
-                    writer.add_scalar(loss_name, (loss_value / (1.0 * g_count)), i_epoch)
+                    writer.add_scalar(
+                        loss_name, (loss_value / (1.0 * g_count)), i_epoch)
 
             # =========================<<<<<start evaluating>>>>>>>>=============================>
             def eval_model(segmentation_model, validate_loader):
@@ -225,15 +229,19 @@ def train_network(experiment_name, dataset,
                     random_sax_image, random_sax_gt = batch['image'], batch['label']
                     random_sax_image_V = makeVariable(random_sax_image, type='float',
                                                       use_gpu=use_gpu, requires_grad=True)
+                    # use STN's performance for model selection
                     segmentation_model.evaluate(input=random_sax_image_V,
-                                                targets_npy=random_sax_gt.numpy(), n_iter=1)
-                score = print_metric(segmentation_model.running_metric, name=experiment_name)
+                                                targets_npy=random_sax_gt.numpy(), n_iter=2)
+
+                score = print_metric(
+                    segmentation_model.running_metric, name=experiment_name)
                 # keep the best model
                 curr_score = score['Mean IoU : \t']
                 curr_acc = score['Mean Acc : \t']
                 return curr_score, curr_acc
 
-            curr_score, curr_acc = eval_model(segmentation_solver, validate_loader)
+            curr_score, curr_acc = eval_model(
+                segmentation_solver, validate_loader)
             score_list.append(curr_score)
 
             if log:
@@ -241,7 +249,8 @@ def train_network(experiment_name, dataset,
                 writer.add_scalar('acc/val_acc', curr_acc, i_epoch)
 
             if test_loader is not None:
-                curr_test_score, curr_test_acc = eval_model(segmentation_solver, test_loader)
+                curr_test_score, curr_test_acc = eval_model(
+                    segmentation_solver, test_loader)
                 if log:
                     writer.add_scalar('iou/test_iou', curr_score, i_epoch)
                     writer.add_scalar('acc/test_acc', curr_acc, i_epoch)
@@ -251,13 +260,15 @@ def train_network(experiment_name, dataset,
                 best_score = curr_score
                 segmentation_solver.save_model(model_dir, epoch_iter='best',
                                                model_prefix=experiment_opt['segmentation_model']["network_type"])
-                segmentation_solver.save_testing_images_results(model_dir, epoch_iter='best', max_slices=5)
+                segmentation_solver.save_testing_images_results(
+                    model_dir, epoch_iter='best', max_slices=5)
 
             ###########save outputs ####################################################################
             if (i_epoch + 1) % experiment_opt["output"]["save_epoch_every_num_epochs"] == 0 or i_epoch == 0:
                 segmentation_solver.save_model(model_dir, epoch_iter=i_epoch,
                                                model_prefix=experiment_opt['segmentation_model']["network_type"])
-                segmentation_solver.save_testing_images_results(model_dir, epoch_iter=i_epoch, max_slices=5)
+                segmentation_solver.save_testing_images_results(
+                    model_dir, epoch_iter=i_epoch, max_slices=5)
                 gc.collect()  # collect garbage
 
             if stop_flag:
@@ -267,7 +278,8 @@ def train_network(experiment_name, dataset,
 
         if log:
             try:
-                writer.export_scalars_to_json(join(log_dir, experiment_name + ".json"))
+                writer.export_scalars_to_json(
+                    join(log_dir, experiment_name + ".json"))
                 writer.close()
             except:
                 print('already closed')
@@ -280,7 +292,8 @@ def train_network(experiment_name, dataset,
 
 # ========================= config==================================================#
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='cooperative training and latent space DA for robust segmentation')
+    parser = argparse.ArgumentParser(
+        description='cooperative training and latent space DA for robust segmentation')
     # training config setting
     parser.add_argument("--json_config_path", type=str, default='./config/ACDC/cooperative_training.json',
                         help='path of configurations')
@@ -293,7 +306,8 @@ if __name__ == '__main__':
                         help="data_setting:['one_shot','three_shot']")
 
     # output setting
-    parser.add_argument("--resume_pkl_path", type=str, default=None, help='path-to-model-snapshot.pkl')
+    parser.add_argument("--resume_pkl_path", type=str,
+                        default=None, help='path-to-model-snapshot.pkl')
     parser.add_argument("--save_dir", type=str,
                         default="./saved/",
                         help='path to resume the models')
@@ -360,7 +374,8 @@ if __name__ == '__main__':
                                            transform=tr['train'], subset_name=frame, split='train',
                                            data_setting_name=training_opt.data_setting,
                                            cval=training_opt.cval,
-                                           keep_orig_image_label_pair=data_opt['keep_orig_image_label_pair_for_training'],
+                                           keep_orig_image_label_pair=data_opt[
+                                               'keep_orig_image_label_pair_for_training'],
                                            use_cache=data_opt['use_cache'],
                                            myocardium_seg=data_opt['myocardium_only'],
                                            right_ventricle_seg=data_opt['right_ventricle_only'],
@@ -378,20 +393,21 @@ if __name__ == '__main__':
                                               myocardium_seg=data_opt['myocardium_only'],
                                               right_ventricle_seg=data_opt['right_ventricle_only'],
                                               keep_orig_image_label_pair=False)
-            test_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
-                                          image_format_name=data_opt["image_format_name"],
-                                          label_format_name=data_opt["label_format_name"],
-                                          transform=tr['validate'], subset_name=frame, split='test',
-                                          data_setting_name=training_opt.data_setting,
-                                          cval=training_opt.cval,
-                                          keep_orig_image_label_pair=False,
-                                          use_cache=data_opt['use_cache'],
-                                          myocardium_seg=data_opt['myocardium_only'],
-                                          right_ventricle_seg=data_opt['right_ventricle_only'],
-                                          ) if track_test_flag else None
+
             train_set_list.append(train_set)
             validate_set_list.append(validate_set)
             if track_test_flag:
+                test_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
+                                              image_format_name=data_opt["image_format_name"],
+                                              label_format_name=data_opt["label_format_name"],
+                                              transform=tr['validate'], subset_name=frame, split='test',
+                                              data_setting_name=training_opt.data_setting,
+                                              cval=training_opt.cval,
+                                              keep_orig_image_label_pair=False,
+                                              use_cache=data_opt['use_cache'],
+                                              myocardium_seg=data_opt['myocardium_only'],
+                                              right_ventricle_seg=data_opt['right_ventricle_only'],
+                                              ) if track_test_flag else None
                 test_set_list.append(test_set)
         if len(frame_list) > 1:
             train_set = ConcatDataSet(dataset_list=train_set_list)
@@ -426,7 +442,8 @@ if __name__ == '__main__':
                                                                 debug=training_opt.debug
                                                                 )
     if training_opt.resume_pkl_path is not None:
-        start_epoch = segmentation_solver.load_snapshots(training_opt.resume_pkl_path)
+        start_epoch = segmentation_solver.load_snapshots(
+            training_opt.resume_pkl_path)
         print(f'training starts at {start_epoch}')
     last_epoch = start_epoch
     # ========================= start training ==================================================#
@@ -434,13 +451,15 @@ if __name__ == '__main__':
         training_opt.data_setting), str(experiment_opt['segmentation_model']["num_classes"]))
     global_dir = training_opt.save_dir
     save_dir = join(training_opt.save_dir, project_str)
-    config_name = training_opt.json_config_path.split('.')[-2].split('/')[-1]
-    experiment_name = "{exp}/{cval}".format(exp=config_name, cval=str(training_opt.cval))
+    config_name = training_opt.json_config_path.replace("./config/", "")
+    config_name = config_name.replace(".json", "")
+    experiment_name = "{exp}/{cval}".format(
+        exp=config_name, cval=str(training_opt.cval))
     log_dir = join(global_dir, *[project_str, experiment_name, 'log'])
     model_dir = join(global_dir, *[project_str, experiment_name, 'model'])
     check_dir(log_dir, create=True)
     check_dir(model_dir, create=True)
-
+    print(f'create {model_dir} to save trained models')
     torch.cuda.empty_cache()
     try:
         train_network(experiment_name=experiment_name,
@@ -452,5 +471,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('keyboardInterrupted')
         if last_epoch > 0:
-            save_path = segmentation_solver.save_snapshots(model_dir, epoch=last_epoch)
-            print('save snapshots at epoch {} to {}'.format(str(last_epoch), save_path))
+            save_path = segmentation_solver.save_snapshots(
+                model_dir, epoch=last_epoch)
+            print('save snapshots at epoch {} to {}'.format(
+                str(last_epoch), save_path))

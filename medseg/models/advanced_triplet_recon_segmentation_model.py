@@ -116,13 +116,19 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
                 shape_decoder_path = join(checkpoint_dir, 'shape_decoder.pth')
                 shape_encoder_path = join(checkpoint_dir, 'shape_encoder.pth')
                 image_decoder_path = join(checkpoint_dir, 'image_decoder.pth')
-                segmentation_decoder_path = join(checkpoint_dir, 'segmentation_decoder.pth')
+                segmentation_decoder_path = join(
+                    checkpoint_dir, 'segmentation_decoder.pth')
 
-            image_encoder = self.init_model(image_encoder, resume_path=image_encoder_path)
-            shape_decoder = self.init_model(shape_decoder, resume_path=shape_decoder_path)
-            shape_encoder = self.init_model(shape_encoder, resume_path=shape_encoder_path)
-            segmentation_decoder = self.init_model(segmentation_decoder, resume_path=segmentation_decoder_path)
-            image_decoder = self.init_model(image_decoder, resume_path=image_decoder_path)
+            image_encoder = self.init_model(
+                image_encoder, resume_path=image_encoder_path)
+            shape_decoder = self.init_model(
+                shape_decoder, resume_path=shape_decoder_path)
+            shape_encoder = self.init_model(
+                shape_encoder, resume_path=shape_encoder_path)
+            segmentation_decoder = self.init_model(
+                segmentation_decoder, resume_path=segmentation_decoder_path)
+            image_decoder = self.init_model(
+                image_decoder, resume_path=image_decoder_path)
 
             if self.use_gpu:
                 image_encoder.to('cuda')
@@ -151,14 +157,16 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
     def init_model(self, model, resume_path=None):
         if not resume_path is None:
             if not resume_path == '':
-                assert os.path.exists(resume_path), 'path: {} must exist'.format(resume_path)
+                assert os.path.exists(
+                    resume_path), 'path: {} must exist'.format(resume_path)
                 try:
                     model.load_state_dict(torch.load(resume_path))
                     print(f'load saved params from {resume_path}')
                 except:
                     try:
                         # dummy code for some historical reason.
-                        model.load_state_dict(torch.load(resume_path)['model_state'], strict=False)
+                        model.load_state_dict(torch.load(resume_path)[
+                                              'model_state'], strict=False)
                     except:
                         print('fail to load checkpoint under {}'.format(resume_path))
             else:
@@ -252,7 +260,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         STN: shape refinement/correction: S'-> STN(S)
         return logit of reconstructed shape
         '''
-        recon_shape = self.decode_shape(self.encode_shape(segmentation_logit, is_label_map))
+        recon_shape = self.decode_shape(
+            self.encode_shape(segmentation_logit, is_label_map))
         return recon_shape
 
     def recon_image(self, image, disable_track_bn_stats=False):
@@ -260,8 +269,10 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         FTN: image recon, I-> FTN-> I'
         return reconstructed shape
         '''
-        z_i, z_s = self.encode_image(image, disable_track_bn_stats=disable_track_bn_stats)
-        recon_image = self.decode_image(z_i, disable_track_bn_stats=disable_track_bn_stats)
+        z_i, z_s = self.encode_image(
+            image, disable_track_bn_stats=disable_track_bn_stats)
+        recon_image = self.decode_image(
+            z_i, disable_track_bn_stats=disable_track_bn_stats)
         return recon_image
 
     def forward(self, input):
@@ -304,7 +315,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         Returns:
             [type]: [description]
         """
-        assert perturb_type in ['random', 'dropout', 'spatial', 'channel'], 'invalid method name'
+        assert perturb_type in ['random', 'dropout',
+                                'spatial', 'channel'], 'invalid method name'
 
         if perturb_type == 'random':
             # random select a perturb type from 'dropout', 'spatial', 'channel'
@@ -348,10 +360,12 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         """
         self.eval()
         (latent_code_i, latent_code_s), first_prediction = self.fast_predict(input)
-        refined_prediction = self.recon_shape(first_prediction, is_label_map=False)
+        refined_prediction = self.recon_shape(
+            first_prediction, is_label_map=False)
         reconstructed_image = self.decode_image(latent_code=latent_code_i)
         abs_image_diff = torch.abs(input - reconstructed_image)
-        abs_segmentation_diff = torch.abs(refined_prediction - first_prediction)
+        abs_segmentation_diff = torch.abs(
+            refined_prediction - first_prediction)
         return abs_image_diff, abs_segmentation_diff, first_prediction, refined_prediction, reconstructed_image
 
     def predict(self, input, softmax=False, n_iter=None):
@@ -423,18 +437,22 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
 
         # image recon loss
         image_recon = self.decode_image(z_i)
-        image_recon_loss = 0.5 * torch.nn.MSELoss(reduction='mean')(input=image_recon, target=clean_image_l)
+        image_recon_loss = 0.5 * \
+            torch.nn.MSELoss(reduction='mean')(
+                input=image_recon, target=clean_image_l)
 
         # shape recon loss
         if compute_gt_recon:
-            gt_recon = self.recon_shape(label_l.detach().clone(), is_label_map=True)
+            gt_recon = self.recon_shape(
+                label_l.detach().clone(), is_label_map=True)
             gt_shape_recon_loss = basic_loss_fn(
                 pred=gt_recon, target=label_l, loss_type='cross entropy')
         else:
             gt_shape_recon_loss = zero
 
         if separate_training:
-            y_0_new = makeVariable(y_0.detach().clone(), requires_grad=False, type='float', use_gpu=self.use_gpu)
+            y_0_new = makeVariable(y_0.detach().clone(
+            ), requires_grad=False, type='float', use_gpu=self.use_gpu)
         else:
             y_0_new = y_0
         p_recon = self.recon_shape(y_0_new, is_label_map=False)
@@ -466,11 +484,14 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
             self.reset_all_optimizers()
             perturbed_z_i_0, img_code_mask = self.perturb_latent_code(latent_code=self.z_i,
                                                                       label_y=clean_image_l,
-                                                                      perturb_type=corrupted_image_DA_config["mask_type"],
+                                                                      perturb_type=corrupted_image_DA_config[
+                                                                          "mask_type"],
                                                                       decoder_function=self.model['image_decoder'],
                                                                       loss_type=corrupted_image_DA_config["loss_name"],
-                                                                      threshold=corrupted_image_DA_config["max_threshold"],
-                                                                      random_threshold=corrupted_image_DA_config["random_threshold"],
+                                                                      threshold=corrupted_image_DA_config[
+                                                                          "max_threshold"],
+                                                                      random_threshold=corrupted_image_DA_config[
+                                                                          "random_threshold"],
                                                                       if_detach=True, if_soft=corrupted_image_DA_config["if_soft"])
             perturbed_image_0 = self.decoder_inference(decoder=self.model['image_decoder'],
                                                        latent_code=perturbed_z_i_0, eval=False, disable_track_bn_stats=True)
@@ -483,7 +504,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
                                                                       decoder_function=self.model['segmentation_decoder'],
                                                                       loss_type=corrupted_seg_DA_config["loss_name"],
                                                                       threshold=corrupted_seg_DA_config["max_threshold"],
-                                                                      random_threshold=corrupted_seg_DA_config["random_threshold"],
+                                                                      random_threshold=corrupted_seg_DA_config[
+                                                                          "random_threshold"],
                                                                       if_detach=True, if_soft=corrupted_seg_DA_config["if_soft"])
 
             perturbed_y_0 = self.decoder_inference(decoder=self.model['segmentation_decoder'],
@@ -494,7 +516,7 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
 
         return perturbed_image_0, perturbed_y_0
 
-    def hard_example_traininng(self, perturbed_image, clean_image_l, perturbed_seg, label_l, separate_training=False, use_gpu=True):
+    def hard_example_training(self, perturbed_image, clean_image_l, perturbed_seg, label_l, separate_training=False, use_gpu=True):
         """
         compute hard training loss
         Args:
@@ -514,7 +536,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         seg_loss, recon_loss, shape_loss, perturbed_p_recon_loss = zero, zero, zero, zero
         if perturbed_image is not None:
             # w. corrupted image
-            perturbed_image = makeVariable(perturbed_image.detach().clone(), use_gpu=use_gpu, type='float')
+            perturbed_image = makeVariable(
+                perturbed_image.detach().clone(), use_gpu=use_gpu, type='float')
             seg_loss, recon_loss, _, shape_loss = self.standard_training(clean_image_l=clean_image_l, label_l=label_l,
                                                                          perturbed_image=perturbed_image, compute_gt_recon=False, separate_training=separate_training, update_latent=False)
 
@@ -522,7 +545,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
             # w. corrupted segmentation
             if separate_training:
                 perturbed_seg = perturbed_seg.detach().clone()
-            perturbed_p_recon = self.recon_shape(perturbed_seg, is_label_map=False)
+            perturbed_p_recon = self.recon_shape(
+                perturbed_seg, is_label_map=False)
             perturbed_p_recon_loss = basic_loss_fn(
                 pred=perturbed_p_recon, target=label_l, loss_type='cross entropy')
 
@@ -625,7 +649,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         self.train(if_testing=True)
         pred = self.predict(input, n_iter=n_iter)
         pred_npy = pred.max(1)[1].cpu().numpy()
-        self.running_metric.update(label_trues=targets_npy, label_preds=pred_npy)
+        self.running_metric.update(
+            label_trues=targets_npy, label_preds=pred_npy)
         self.cur_eval_images = input.data.cpu().numpy()[:, 0, :, :]
         del input
         self.cur_eval_predicts = pred_npy
@@ -655,7 +680,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         save_path = join(epoch_path, self.network_type + '.pkl')
         model_states_dict = {}
         for model_name, model in self.model.items():
-            state_dict = model.module.state_dict() if isinstance(self.model, torch.nn.DataParallel) else model.state_dict()
+            state_dict = model.module.state_dict() if isinstance(
+                self.model, torch.nn.DataParallel) else model.state_dict()
             model_states_dict[model_name] = state_dict
         optimizers_dict = {}
         for optimizer_name, optimizer in self.optimizers.items():
@@ -699,7 +725,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
             for k, v in self.optimizers.items():
                 v.load_state_dict(optimizer_states[k])
             start_epoch = checkpoint['epoch']
-            print("Loaded checkpoint '{}' (epoch {})".format(file_path, checkpoint['epoch']))
+            print("Loaded checkpoint '{}' (epoch {})".format(
+                file_path, checkpoint['epoch']))
         except Exception as e:
             print('error: {} in loading {}'.format(e, file_path))
         return start_epoch
@@ -765,7 +792,8 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         gts = self.cur_eval_gts
         predicts = self.cur_eval_predicts
         images = self.cur_eval_images
-        save_testing_images_results(images, gts, predicts, save_dir, epoch_iter, max_slices, file_name)
+        save_testing_images_results(
+            images, gts, predicts, save_dir, epoch_iter, max_slices, file_name)
 
 
 if __name__ == '__main__':

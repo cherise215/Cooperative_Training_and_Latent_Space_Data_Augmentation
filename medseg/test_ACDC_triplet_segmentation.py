@@ -18,7 +18,6 @@ from medseg.common_utils.basic_operations import check_dir
 
 pad_size = [224, 224, 1]
 crop_size = [192, 192, 1]
-new_spacing = [1.36719, 1.36719, -1]
 
 
 def get_testset(test_dataset_name, frames=['ED', 'ES']):
@@ -41,7 +40,7 @@ def get_testset(test_dataset_name, frames=['ED', 'ES']):
                                               data_setting_name='10', formalized_label_dict=formalized_label_dict,
                                               subset_name=frame, split='test', myocardium_seg=False,
                                               right_ventricle_seg=right_ventricle_seg,
-                                              new_spacing=None, normalize=False)
+                                              new_spacing=None)
         elif test_dataset_name == 'MM':
             root_dir = '/vol/biomedic3/cc215/data/cardiac_MMSeg_challenge/Training-corrected/Labeled'
             IMAGE_FORMAT_NAME = '{p_id}/' + frame + '_img.nii.gz'
@@ -51,10 +50,11 @@ def get_testset(test_dataset_name, frames=['ED', 'ES']):
                                               idx2cls_dict=IDX2CLASS_DICT,
                                               image_format_name=IMAGE_FORMAT_NAME,
                                               label_format_name=LABEL_FORMAT_NAME,
-                                              new_spacing=new_spacing, normalize=True)
+                                              new_spacing=None)
 
         elif test_dataset_name in ['RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']:
-            root_folder = '/vol/biomedic3/cc215/data/ACDC/ACDC_artefacted/{}'.format(test_dataset_name)
+            root_folder = '/vol/biomedic3/cc215/data/ACDC/ACDC_artefacted/{}'.format(
+                test_dataset_name)
             IMAGE_FORMAT_NAME = '{p_id}/' + frame + '_img.nrrd'
             LABEL_FORMAT_NAME = '{p_id}/' + frame + '_label.nrrd'
             test_dataset = Cardiac_MM_Dataset(root_dir=root_folder,
@@ -63,7 +63,7 @@ def get_testset(test_dataset_name, frames=['ED', 'ES']):
                                               idx2cls_dict=IDX2CLASS_DICT,
                                               image_format_name=IMAGE_FORMAT_NAME,
                                               label_format_name=LABEL_FORMAT_NAME,
-                                              new_spacing=None, normalize=False)
+                                              new_spacing=None)
 
         else:
             raise NotImplementedError
@@ -95,7 +95,8 @@ def evaluate(method_name, segmentation_model, test_dataset_name, frames=['ED', '
 
     tester.run()
 
-    print('<Summary> {} on dataset {} across {}'.format(method_name, test_dataset_name, str(frames)))
+    print('<Summary> {} on dataset {} across {}'.format(
+        method_name, test_dataset_name, str(frames)))
     print(tester.df.describe())
     # save each method's result summary/details on each test dataset
     tester.df.describe().to_csv(join(save_path + f'/{test_dataset_name}' + '{}_iter_{}_summary.csv'.format(
@@ -116,7 +117,8 @@ if __name__ == '__main__':
     n_iter = 2  # 1 for FTN's prediction, 2 for FTN+STN's refinements
     cval_id = 2
 
-    test_dataset_name_list = ['ACDC', 'MM', 'RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']
+    test_dataset_name_list = [
+        'ACDC', 'MM', 'RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']
     # change your path here
     segmentor_resume_dir_dict = {
         'standard': f'saved/train_ACDC_10_n_cls_4/standard_training/{cval_id}/model/best/checkpoints',
@@ -134,13 +136,16 @@ if __name__ == '__main__':
         result_summary = []
 
         for method_name, model in model_dict.items():
-            save_report_dir = join(segmentor_resume_dir_dict[method_name], 'report')
+            save_report_dir = join(
+                segmentor_resume_dir_dict[method_name], 'report')
             check_dir(save_report_dir, create=True)
             means, stds, concatenated_df = evaluate(
                 segmentation_model=model, test_dataset_name=test_dataset_name, method_name=method_name, save_report_dir=save_report_dir)
-            result_summary.append([test_dataset_name, method_name, means, stds])
+            result_summary.append(
+                [test_dataset_name, method_name, means, stds])
             df_dict[method_name] = concatenated_df
-        aggregated_df = pd.DataFrame(data=result_summary, columns=['dataset', 'method', 'Dice mean', 'Dice std'])
+        aggregated_df = pd.DataFrame(data=result_summary, columns=[
+                                     'dataset', 'method', 'Dice mean', 'Dice std'])
         print(aggregated_df)
 
         # # conduct student t test between two pandas dataframe and then compute the p value to vis the difference

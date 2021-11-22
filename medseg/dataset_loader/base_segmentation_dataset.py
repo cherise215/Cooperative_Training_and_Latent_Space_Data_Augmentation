@@ -79,7 +79,8 @@ class BaseSegDataset(Dataset):
         else:
             data_dict = self.load_data(index)
 
-        data_dict = self.preprocess_data_to_tensors(data_dict['image'], data_dict['label'])
+        data_dict = self.preprocess_data_to_tensors(
+            data_dict['image'], data_dict['label'])
 
         return data_dict
 
@@ -136,7 +137,8 @@ class BaseSegDataset(Dataset):
         new_labels = np.uint8(new_labels)
         if image.shape[2] > 1:  # RGB channel
             new_labels = np.repeat(new_labels, axis=2, repeats=image.shape[2])
-        transformed_image, transformed_label = self.transform(image, new_labels)
+        transformed_image, transformed_label = self.transform(
+            image, new_labels)
         if if_slice_data:
             transformed_label = transformed_label[0, :, :]
 
@@ -152,17 +154,21 @@ class BaseSegDataset(Dataset):
             h_s = (h - new_h) // 2
             w_s = (w - new_w) // 2
             if h < new_h:
-                pad_result = np.zeros((new_h, orig_image.shape[1], orig_image.shape[2]), dtype=orig_image.dtype)
+                pad_result = np.zeros(
+                    (new_h, orig_image.shape[1], orig_image.shape[2]), dtype=orig_image.dtype)
                 pad_result[-h_s:-h_s + h] = orig_image
                 orig_image = pad_result
-                pad_result = np.zeros((new_h, orig_image.shape[1]), dtype=orig_label.dtype)
+                pad_result = np.zeros(
+                    (new_h, orig_image.shape[1]), dtype=orig_label.dtype)
                 pad_result[-h_s:-h_s + h] = orig_label
                 orig_label = pad_result
             if w < new_w:
-                pad_result = np.zeros((orig_image.shape[0], new_w, orig_image.shape[2]), dtype=orig_image.dtype)
+                pad_result = np.zeros(
+                    (orig_image.shape[0], new_w, orig_image.shape[2]), dtype=orig_image.dtype)
                 pad_result[:, -w_s:-w_s + w] = orig_image
                 orig_image = pad_result
-                pad_result = np.zeros((orig_image.shape[0], new_w), dtype=orig_label.dtype)
+                pad_result = np.zeros(
+                    (orig_image.shape[0], new_w), dtype=orig_label.dtype)
                 pad_result[:, -w_s:-w_s + w] = orig_label
                 orig_label = pad_result
 
@@ -173,7 +179,8 @@ class BaseSegDataset(Dataset):
             if h_s > 0 or w_s > 0:
                 orig_image = orig_image[h_s:h_s + new_h, w_s:w_s + new_w]
                 orig_label = orig_label[h_s:h_s + new_h, w_s:w_s + new_w]
-            orig_image_tensor = torch.from_numpy(orig_image).float().permute(2, 0, 1)  # ch*H*W
+            orig_image_tensor = torch.from_numpy(
+                orig_image).float().permute(2, 0, 1)  # ch*H*W
             orig_label_tensor = torch.from_numpy(orig_label).long()
             result_dict['origin_image'] = orig_image_tensor
             result_dict['origin_label'] = orig_label_tensor
@@ -194,7 +201,7 @@ class BaseSegDataset(Dataset):
             new_labels[origin_labels == old_label_value] = new_label_value
         return new_labels
 
-    def get_patient_data_for_testing(self, pid_index, crop_size=None):
+    def get_patient_data_for_testing(self, pid_index, crop_size=None, normalize_2D=False):
         '''
         image
         :param pad_size:[H',W']
@@ -231,7 +238,8 @@ class CombinedDataSet(data.Dataset):
 
     def __getitem__(self, index):
         source_index = index % len(self.source_dataset)
-        target_index = (index + np.random.randint(0, len(self.target_dataset) - 1)) % len(self.target_dataset)
+        target_index = (index + np.random.randint(0,
+                                                  len(self.target_dataset) - 1)) % len(self.target_dataset)
 
         return self.source_dataset[source_index], self.target_dataset[target_index]
 
@@ -250,20 +258,28 @@ class ConcatDataSet(data.Dataset):
         self.patient_number = 0
         self.formalized_label_dict = self.dataset_list[0].formalized_label_dict
         self.pid2datasetid = {}
+        self.slice2datasetid = {}
         for dataset_id, dset in enumerate(self.dataset_list):
             for id in range(self.patient_number, self.patient_number + dset.patient_number):
                 self.pid2datasetid[id] = dataset_id
+            for sid in range(a_sum, a_sum + len(dset)):
+                self.slice2datasetid[sid] = dataset_id
             a_sum += len(dset)
             self.patient_number += dset.patient_number
         self.datasize = a_sum
-        print(f'total patient number: {self.patient_number}, 2D slice number:{self.datasize}')
+        print(
+            f'total patient number: {self.patient_number}, 2D slice number:{self.datasize}')
 
     def __getitem__(self, index):
-        # random pick up a datset
-        dataset_id = np.random.randint(0, len(self.dataset_list))
-        index = index % len(self.dataset_list[dataset_id])
+        dataset_id = self.slice2datasetid[index]
+        if dataset_id >= 1:
+            start_index = 0
+            for ds in self.dataset_list[:dataset_id]:
+                start_index += len(ds)
+            index = index - start_index
+        # print(f'index {index} dataset id {dataset_id}')
         self.cur_dataset = self.dataset_list[dataset_id]
-        return self.dataset_list[dataset_id][index]
+        return self.cur_dataset[index]
 
     def __len__(self):
         return self.datasize
@@ -279,12 +295,15 @@ class ConcatDataSet(data.Dataset):
     def get_voxel_spacing(self):
         return self.cur_dataset.get_voxel_spacing()
 
-    def get_patient_data_for_testing(self, pid_index, crop_size=None):
+    def get_patient_data_for_testing(self, pid_index, crop_size=None, normalize_2D=False):
+        # if normalize_2D:
+        #     print('call 2D normalize')
         self.p_id = pid_index
         dataset_id = self.pid2datasetid[pid_index]
         self.cur_dataset = self.dataset_list[dataset_id]
         index = pid_index % self.cur_dataset.patient_number
-        data_pack = self.cur_dataset.get_patient_data_for_testing(index, crop_size)
+        data_pack = self.cur_dataset.get_patient_data_for_testing(
+            index, crop_size, normalize_2D)
         return data_pack
 
 
@@ -298,13 +317,16 @@ if __name__ == '__main__':
     crop_size = (5, 5, 1)
     # class_dict={
     #   0: 'BG',  1: 'FG'}
-    tr = Transformations(data_aug_policy_name='affine', crop_size=crop_size).get_transformation()
+    tr = Transformations(data_aug_policy_name='affine',
+                         crop_size=crop_size).get_transformation()
     dataset = BaseSegDataset(dataset_name='dummy', image_size=image_size, label_size=label_size, transform=tr['train'],
                              use_cache=True)
     dataset_2 = BaseSegDataset(dataset_name='dummy', image_size=image_size, label_size=label_size, transform=tr['train'],
                                use_cache=True)
-    combined_train_loader = CombinedDataSet(source_dataset=dataset, target_dataset=dataset_2)
-    train_loader = DataLoader(dataset=combined_train_loader, num_workers=0, batch_size=1, shuffle=True, drop_last=True)
+    combined_train_loader = CombinedDataSet(
+        source_dataset=dataset, target_dataset=dataset_2)
+    train_loader = DataLoader(dataset=combined_train_loader,
+                              num_workers=0, batch_size=1, shuffle=True, drop_last=True)
 
     for i, item in enumerate(train_loader):
         source_input, target_input = item

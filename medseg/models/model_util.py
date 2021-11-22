@@ -52,7 +52,8 @@ class ExponentialMovingAverage:
         decay = self.decay
         if self.num_updates is not None:
             self.num_updates += 1
-            decay = min(decay, (1 + self.num_updates) / (10 + self.num_updates))
+            decay = min(decay, (1 + self.num_updates) /
+                        (10 + self.num_updates))
         one_minus_decay = 1.0 - decay
         with torch.no_grad():
             parameters = [p for p in parameters if p.requires_grad]
@@ -115,7 +116,8 @@ def cross_entropy_2D(input, target, weight=None, size_average=True):
     elif len(target.size()) == 4:
         # ce loss=-qlog(p)
         reference = F.softmax(target, dim=1)  # M,C
-        reference = reference.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)  # M,C
+        reference = reference.transpose(1, 2).transpose(
+            2, 3).contiguous().view(-1, c)  # M,C
         if weight is None:
             plogq = torch.mean(torch.mean(reference * log_p, dim=1))
         else:
@@ -124,7 +126,8 @@ def cross_entropy_2D(input, target, weight=None, size_average=True):
             plogq_class_wise = reference * log_p
             plogq_sum_class = 0.
             for i in range(plogq_class_wise.size(1)):
-                plogq_sum_class += torch.mean(plogq_class_wise[:, i] * weight[i])
+                plogq_sum_class += torch.mean(
+                    plogq_class_wise[:, i] * weight[i])
             plogq = plogq_sum_class
         loss = -1 * plogq
     else:
@@ -147,7 +150,8 @@ def clip_grad(optimizer):
                 _, beta2 = group['betas']
 
                 bound = 3 * torch.sqrt(exp_avg_sq / (1 - beta2 ** step)) + 0.1
-                p.grad.data.copy_(torch.max(torch.min(p.grad.data, bound), -bound))
+                p.grad.data.copy_(
+                    torch.max(torch.min(p.grad.data, bound), -bound))
 
 
 def set_model_grad(model, state=False):
@@ -164,7 +168,8 @@ def set_grad(module, requires_grad=False):
 def make_one_hot(y, num_classes=4):
     batch_size, h, w = y.size(0), y.size(1), y.size(2)
     flatten_y = y.view(batch_size * h * w, 1)
-    y_onehot = torch.zeros(batch_size * h * w, num_classes, dtype=torch.float32, device=y.device)
+    y_onehot = torch.zeros(batch_size * h * w, num_classes,
+                           dtype=torch.float32, device=y.device)
     y_onehot.scatter_(1, flatten_y, 1)
     y_onehot = y_onehot.view(batch_size, h, w, num_classes)
     y_onehot = y_onehot.permute(0, 3, 1, 2)
@@ -194,7 +199,8 @@ def mask_latent_code_channel_wise(latent_code, decoder_function, label, num_clas
     '''
     use_gpu = True if latent_code.device != torch.device('cpu') else False
 
-    code = makeVariable(latent_code, use_gpu=use_gpu, type='float', requires_grad=True)
+    code = makeVariable(latent_code, use_gpu=use_gpu,
+                        type='float', requires_grad=True)
 
     feature_channels = code.size(1)
     num_images = code.size(0)
@@ -210,19 +216,23 @@ def mask_latent_code_channel_wise(latent_code, decoder_function, label, num_clas
         loss = torch.mean((decoder_function(code) - gt_y)**2)
     elif loss_type == 'ce':
         logit = decoder_function(code)
-        loss = cross_entropy_2D(input=logit, target=label, weight=None, size_average=True)
+        loss = cross_entropy_2D(input=logit, target=label,
+                                weight=None, size_average=True)
         loss = torch.mean(loss)
 
     gradient = torch.autograd.grad(loss, [code])[0]
-    gradient_channel_mean = torch.mean(gradient.view(num_images, feature_channels, -1), dim=2)
+    gradient_channel_mean = torch.mean(
+        gradient.view(num_images, feature_channels, -1), dim=2)
     # select the threshold at top XX percentile
     # random percentile
     if random:
         percentile = np.random.rand() * percentile
     vector_thresh_percent = int(feature_channels * percentile)
-    vector_thresh_value = torch.sort(gradient_channel_mean, dim=1, descending=True)[0][:, vector_thresh_percent]
+    vector_thresh_value = torch.sort(gradient_channel_mean, dim=1, descending=True)[
+        0][:, vector_thresh_percent]
 
-    vector_thresh_value = vector_thresh_value.view(num_images, 1).expand(num_images, feature_channels)
+    vector_thresh_value = vector_thresh_value.view(
+        num_images, 1).expand(num_images, feature_channels)
 
     if if_soft:
         vector = torch.where(gradient_channel_mean > vector_thresh_value,
@@ -250,7 +260,8 @@ def mask_latent_code_spatial_wise(latent_code, decoder_function, label, num_clas
     given a latent code return a perturbed code where top % areas are masked 
     '''
     use_gpu = True if latent_code.device != torch.device('cpu') else False
-    code = makeVariable(latent_code, use_gpu=use_gpu, type='float', requires_grad=True)
+    code = makeVariable(latent_code, use_gpu=use_gpu,
+                        type='float', requires_grad=True)
     num_images = code.size(0)
     spatial_size = code.size(2) * code.size(3)
     H, W = code.size(2), code.size(3)
@@ -265,7 +276,8 @@ def mask_latent_code_spatial_wise(latent_code, decoder_function, label, num_clas
         loss = torch.mean((decoder_function(code) - gt_y)**2)
     elif loss_type == 'ce':
         logit = decoder_function(code)
-        loss = cross_entropy_2D(input=logit, target=label, weight=None, size_average=True)
+        loss = cross_entropy_2D(input=logit, target=label,
+                                weight=None, size_average=True)
         loss = torch.mean(loss)
 
     gradient = torch.autograd.grad(loss, [code])[0]
@@ -278,9 +290,11 @@ def mask_latent_code_spatial_wise(latent_code, decoder_function, label, num_clas
         percentile = np.random.rand() * percentile
 
     vector_thresh_percent = int(spatial_size * percentile)
-    vector_thresh_value = torch.sort(spatial_mean, dim=1, descending=True)[0][:, vector_thresh_percent]
+    vector_thresh_value = torch.sort(spatial_mean, dim=1, descending=True)[
+        0][:, vector_thresh_percent]
 
-    vector_thresh_value = vector_thresh_value.view(num_images, 1).expand(num_images, spatial_size)
+    vector_thresh_value = vector_thresh_value.view(
+        num_images, 1).expand(num_images, spatial_size)
 
     if if_soft:
         vector = torch.where(spatial_mean > vector_thresh_value,
@@ -336,9 +350,11 @@ def filter_unlabelled_predictions(predictions, threshold=0.8):
     # find the maximum prob for each mask
     foreground_predictions = predictions.detach()
     max_prob_for_each_image = torch.max(foreground_predictions, dim=1)[0]
-    max_prob_for_each_image = torch.clamp(max_prob_for_each_image - threshold, 0, 1)
+    max_prob_for_each_image = torch.clamp(
+        max_prob_for_each_image - threshold, 0, 1)
     max_prob_for_each_image[foreground_predictions > 0] = 1
-    confidence_maps = max_prob_for_each_image.unsqueeze(1).expand_as(predictions)
+    confidence_maps = max_prob_for_each_image.unsqueeze(
+        1).expand_as(predictions)
     return confidence_maps
 
 
@@ -409,20 +425,31 @@ def _disable_tracking_bn_stats(model):
             [type]: [description]
         """
         old_states = {}
-        for name, module in model.named_children():
-            if hasattr(module, 'track_running_stats'):
-                old_state = module.track_running_stats
+        for name, module in model.named_modules():
+            if isinstance(module, torch.nn.BatchNorm2d):
+                # print('here batch norm')
+                old_states[name] = module.track_running_stats
+                # old_state = module.track_running_stats
                 if hist_states is not None:
                     module.track_running_stats = hist_states[name]
+                    # module.train(hist_states[name])
+                    if hasattr(module, 'weight'):
+                        module.weight.requires_grad_(hist_states[name])
+                    if hasattr(module, 'bias'):
+                        module.bias.requires_grad_(hist_states[name])
                 else:
                     if new_state is not None:
                         module.track_running_stats = new_state
-                old_states[name] = old_state
+                        # module.train(new_state)
+                        if hasattr(module, 'weight'):
+                            module.weight.requires_grad_(new_state)
+                        if hasattr(module, 'bias'):
+                            module.bias.requires_grad_(new_state)
         return old_states
 
     old_states = switch_attr(model, False)
     yield
-    switch_attr(model, old_states)
+    switch_attr(model, hist_states=old_states)
 
 
 class SizeEstimator(object):
@@ -505,7 +532,8 @@ class SizeEstimator(object):
 
 
 def save_model_to_file(model_name, model, epoch, optimizer, save_path):
-    state_dict = model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict()
+    state_dict = model.module.state_dict() if isinstance(
+        model, torch.nn.DataParallel) else model.state_dict()
     state = {'model_name': model_name,
              'epoch': epoch + 1,
              'model_state': state_dict,
@@ -549,10 +577,12 @@ def encode_2D(label_map, n_classes, use_gpu=False):
     input_label = torch.zeros(torch.Size(oneHot_size)).float()
     if use_gpu:
         input_label = input_label.cuda()
-        input_label = input_label.scatter_(1, label_map[:, None, :, :].long().cuda(), 1.0)
+        input_label = input_label.scatter_(
+            1, label_map[:, None, :, :].long().cuda(), 1.0)
     else:
         input_label = input_label
-        input_label = input_label.scatter_(1, label_map[:, None, :, :].long(), 1.0)
+        input_label = input_label.scatter_(
+            1, label_map[:, None, :, :].long(), 1.0)
 
     return input_label
 
@@ -593,18 +623,23 @@ def get_scheduler(optimizer, lr_policy, lr_decay_iters=5, epoch_count=None, nite
     print('lr_policy = [{}]'.format(lr_policy))
     if lr_policy == 'lambda':
         def lambda_rule(epoch):
-            lr_l = 1.0 - max(0, epoch + 1 + epoch_count - niter) / float(niter_decay + 1)
+            lr_l = 1.0 - max(0, epoch + 1 + epoch_count -
+                             niter) / float(niter_decay + 1)
             return lr_l
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
     elif lr_policy == 'step':
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=lr_decay_iters, gamma=0.5)
+        scheduler = lr_scheduler.StepLR(
+            optimizer, step_size=lr_decay_iters, gamma=0.5)
     elif lr_policy == 'step2':
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=lr_decay_iters, gamma=0.1)
+        scheduler = lr_scheduler.StepLR(
+            optimizer, step_size=lr_decay_iters, gamma=0.1)
     elif lr_policy == 'plateau':
         print('schedular=plateau')
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, threshold=0.01, patience=5)
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.1, threshold=0.01, patience=5)
     elif lr_policy == 'plateau2':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
     elif lr_policy == 'step_warmstart':
         def lambda_rule(epoch):
             # print(epoch)

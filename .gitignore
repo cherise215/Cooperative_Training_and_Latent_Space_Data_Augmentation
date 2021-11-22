@@ -130,4 +130,5 @@ MNIST
 saved/
 scripts/
 output/
+*.log
 
