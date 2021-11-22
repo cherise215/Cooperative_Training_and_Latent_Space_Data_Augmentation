@@ -411,7 +411,7 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         decoder.train(mode=decoder_state)
         return logit
 
-    def standard_training(self, clean_image_l, label_l, perturbed_image, separate_training=False, compute_gt_recon=True, update_latent=True, disable_tracking_bn_stats=False):
+    def standard_training(self, clean_image_l, label_l, perturbed_image, separate_training=False, compute_gt_recon=True, update_latent=True, disable_track_bn_stats=False):
         """
         compute standard training loss
         Args:
@@ -432,7 +432,7 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         zero = torch.tensor(0., device=clean_image_l.device)
 
         (z_i, z_s), y_0 = self.fast_predict(perturbed_image,
-                                            disable_track_bn_stats=disable_tracking_bn_stats)
+                                            disable_track_bn_stats=disable_track_bn_stats)
         if update_latent:
             self.z_i = z_i
             self.z_s = z_s
@@ -461,7 +461,7 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
         else:
             y_0_new = y_0
         p_recon = self.recon_shape(
-            y_0_new, is_label_map=False, disable_track_bn_stats=disable_tracking_bn_stats)
+            y_0_new, is_label_map=False, disable_track_bn_stats=disable_track_bn_stats)
         pred_shape_recon_loss = basic_loss_fn(
             pred=p_recon, target=label_l, loss_type='cross entropy')
         return standard_supervised_loss, image_recon_loss, gt_shape_recon_loss, pred_shape_recon_loss
@@ -545,14 +545,14 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
             perturbed_image = makeVariable(
                 perturbed_image.detach().clone(), use_gpu=use_gpu, type='float')
             seg_loss, recon_loss, _, shape_loss = self.standard_training(clean_image_l=clean_image_l, label_l=label_l,
-                                                                         perturbed_image=perturbed_image, compute_gt_recon=False, separate_training=separate_training, update_latent=False, disable_tracking_bn_stats=True)
+                                                                         perturbed_image=perturbed_image, compute_gt_recon=False, separate_training=separate_training, update_latent=False, disable_track_bn_stats=True)
 
         if perturbed_seg is not None:
             # w. corrupted segmentation
             if separate_training:
                 perturbed_seg = perturbed_seg.detach().clone()
             perturbed_p_recon = self.recon_shape(
-                perturbed_seg, is_label_map=False, disable_tracking_bn_stats=True)
+                perturbed_seg, is_label_map=False, disable_track_bn_stats=True)
             perturbed_p_recon_loss = basic_loss_fn(
                 pred=perturbed_p_recon, target=label_l, loss_type='cross entropy')
 
