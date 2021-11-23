@@ -1,6 +1,7 @@
 '''
 train a model on various test datasets
 '''
+import os
 from os.path import join
 import pandas as pd
 from scipy import stats
@@ -35,7 +36,7 @@ def get_testset(test_dataset_name, frames=['ED', 'ES']):
     testset_list = []
     for frame in frames:
         if test_dataset_name == 'ACDC':
-            root_dir = '/vol/biomedic3/cc215/Project/DeformADA/Data/bias_corrected_and_normalized'
+            root_dir = '/vol/biomedic3/cc215/data/ACDC/preprocessed'
             test_dataset = CardiacACDCDataset(root_dir=root_dir, transform=tr['validate'], idx2cls_dict=IDX2CLASS_DICT, num_classes=4,
                                               data_setting_name='10', formalized_label_dict=formalized_label_dict,
                                               subset_name=frame, split='test', myocardium_seg=False,
@@ -80,15 +81,16 @@ def evaluate(method_name, segmentation_model, test_dataset_name, frames=['ED', '
              save_predict=False, save_soft_prediction=False, foreground_only=False):
     n_iter = segmentation_model.n_iter
     # evaluation settings
-    save_path = join(checkpoint_dir, 'report')
+    save_path = checkpoint_dir.replace(
+        'checkpoints', f'report/{test_dataset_name}')
+    check_dir(save_path, create=True)
 
-    frame_int = 0
     summary_report_file_name = 'iter_{}_summary.csv'.format(n_iter)
     detailed_report_file_name = 'iter_{}_detailed.csv'.format(n_iter)
     test_dataset = get_testset(test_dataset_name, frames=frames)
     tester = TestSegmentationNetwork(test_dataset=test_dataset,
                                      crop_size=[192, 192, 1], segmentation_model=segmentation_model, use_gpu=True,
-                                     save_path=save_report_dir + f'/{test_dataset_name}', summary_report_file_name=summary_report_file_name,
+                                     save_path=save_path, summary_report_file_name=summary_report_file_name,
                                      detailed_report_file_name=detailed_report_file_name, patient_wise=True, metrics_list=metrics_list,
                                      foreground_only=foreground_only,
                                      save_prediction=save_predict, save_soft_prediction=save_soft_prediction)
@@ -115,38 +117,42 @@ if __name__ == '__main__':
     num_classes = 4
     network_type = 'FCN_16_standard'
     n_iter = 2  # 1 for FTN's prediction, 2 for FTN+STN's refinements
-    cval_id = 2
+    cval_id_list = [0, 1, 2]
 
     test_dataset_name_list = [
         'ACDC', 'MM', 'RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']
-    # change your path here
-    segmentor_resume_dir_dict = {
-        'standard': f'saved/train_ACDC_10_n_cls_4/standard_training/{cval_id}/model/best/checkpoints',
-        'cooperative': f'saved/train_ACDC_10_n_cls_4/cooperative_training/{cval_id}/model/best/checkpoints'
-    }
+    for cval_id in cval_id_list:
+        # change your path here
+        segmentor_resume_dir_dict = {
+            'standard': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test/{cval_id}/model/best/checkpoints',
+            'cooperative': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test/{cval_id}/model/best/checkpoints'
+        }
 
-    # load model
-    model_dict = {}
-    for method, checkpoint_dir in segmentor_resume_dir_dict.items():
-        model_dict[method] = AdvancedTripletReconSegmentationModel(network_type=network_type, decoder_dropout=None,
-                                                                   checkpoint_dir=checkpoint_dir,
-                                                                   num_classes=num_classes, n_iter=n_iter, use_gpu=True)
-    df_dict = {}
-    for test_dataset_name in test_dataset_name_list:
-        result_summary = []
+        # load model
+        model_dict = {}
+        for method, checkpoint_dir in segmentor_resume_dir_dict.items():
+            if not os.path.exists(checkpoint_dir):
+                print(f'{method}:{checkpoint_dir} not found. ')
+                continue
+            model_dict[method] = AdvancedTripletReconSegmentationModel(network_type=network_type, decoder_dropout=None,
+                                                                       checkpoint_dir=checkpoint_dir,
+                                                                       num_classes=num_classes, n_iter=n_iter, use_gpu=True)
+        df_dict = {}
+        for test_dataset_name in test_dataset_name_list:
+            result_summary = []
 
-        for method_name, model in model_dict.items():
-            save_report_dir = join(
-                segmentor_resume_dir_dict[method_name], 'report')
-            check_dir(save_report_dir, create=True)
-            means, stds, concatenated_df = evaluate(
-                segmentation_model=model, test_dataset_name=test_dataset_name, method_name=method_name, save_report_dir=save_report_dir)
-            result_summary.append(
-                [test_dataset_name, method_name, means, stds])
-            df_dict[method_name] = concatenated_df
-        aggregated_df = pd.DataFrame(data=result_summary, columns=[
-                                     'dataset', 'method', 'Dice mean', 'Dice std'])
-        print(aggregated_df)
+            for method_name, model in model_dict.items():
+                save_report_dir = join(
+                    segmentor_resume_dir_dict[method_name], 'report')
+                check_dir(save_report_dir, create=True)
+                means, stds, concatenated_df = evaluate(
+                    segmentation_model=model, test_dataset_name=test_dataset_name, method_name=method_name, save_report_dir=save_report_dir)
+                result_summary.append(
+                    [test_dataset_name, method_name, means, stds])
+                df_dict[method_name] = concatenated_df
+            aggregated_df = pd.DataFrame(data=result_summary, columns=[
+                'dataset', 'method', 'Dice mean', 'Dice std'])
+            print(aggregated_df)
 
         # # conduct student t test between two pandas dataframe and then compute the p value to vis the difference
         # reference_method = "standard"

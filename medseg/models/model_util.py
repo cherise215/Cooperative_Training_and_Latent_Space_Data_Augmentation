@@ -428,23 +428,23 @@ def _disable_tracking_bn_stats(model):
         for name, module in model.named_modules():
             if isinstance(module, torch.nn.BatchNorm2d):
                 # print('here batch norm')
-                old_states[name] = module.track_running_stats
+                old_states[name] = module.training
                 # old_state = module.track_running_stats
                 if hist_states is not None:
-                    module.track_running_stats = hist_states[name]
-                    # module.train(hist_states[name])
-                    if hasattr(module, 'weight'):
-                        module.weight.requires_grad_(hist_states[name])
-                    if hasattr(module, 'bias'):
-                        module.bias.requires_grad_(hist_states[name])
+                    # module.track_running_stats = hist_states[name]
+                    module.train(hist_states[name])
+                    # if hasattr(module, 'weight'):
+                    #     module.weight.requires_grad_(hist_states[name])
+                    # if hasattr(module, 'bias'):
+                    #     module.bias.requires_grad_(hist_states[name])
                 else:
                     if new_state is not None:
-                        module.track_running_stats = new_state
-                        # module.train(new_state)
-                        if hasattr(module, 'weight'):
-                            module.weight.requires_grad_(new_state)
-                        if hasattr(module, 'bias'):
-                            module.bias.requires_grad_(new_state)
+                        module.train(new_state)
+                        # module.track_running_stats = new_state
+                        # if hasattr(module, 'weight'):
+                        #     module.weight.requires_grad_(new_state)
+                        # if hasattr(module, 'bias'):
+                        #     module.bias.requires_grad_(new_state)
         return old_states
 
     old_states = switch_attr(model, False)

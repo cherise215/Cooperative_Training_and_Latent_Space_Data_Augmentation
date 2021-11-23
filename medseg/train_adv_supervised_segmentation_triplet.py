@@ -45,11 +45,10 @@ def sample_batch(dataiter, dataloader, SSL_flag=False):
     return labelled_batch, unlabelled_batch, dataiter
 
 
-def get_batch(dataiter, train_loader, experiment_opt, use_gpu):
+def get_batch(dataiter, train_loader, use_gpu=True, keep_origin=True):
     labelled_batch, unlabelled_batch, dataiter = sample_batch(
         dataiter=dataiter, dataloader=train_loader, SSL_flag=False)
     image_l, label_l = labelled_batch['image'], labelled_batch['label']
-    keep_origin = experiment_opt['data']['keep_orig_image_label_pair_for_training']
     if keep_origin:
         image_orig, gt_orig = labelled_batch['origin_image'], labelled_batch['origin_label']
         image_l = torch.cat([image_l, image_orig], dim=0)
@@ -127,6 +126,7 @@ def train_network(experiment_name, dataset,
     stop_flag = False
     score_list = []
     dataiter = iter(train_loader)
+    keep_origin = experiment_opt['data']['keep_orig_image_label_pair_for_training']
 
     segmentation_solver.reset_all_optimizers()
     segmentation_solver.train()
@@ -155,7 +155,7 @@ def train_network(experiment_name, dataset,
                 segmentation_solver.reset_all_optimizers()
 
                 clean_image_l, label_l, unlabelled_batch, dataiter = get_batch(
-                    dataiter, train_loader, experiment_opt, use_gpu)
+                    dataiter, train_loader, keep_origin=keep_origin, use_gpu=use_gpu)
                 clean_image_l = makeVariable(
                     clean_image_l, use_gpu=True, requires_grad=False, type='float')
                 batch_4d_size = clean_image_l.size()
@@ -228,7 +228,7 @@ def train_network(experiment_name, dataset,
                 for b_iter, batch in enumerate(validate_loader):
                     random_sax_image, random_sax_gt = batch['image'], batch['label']
                     random_sax_image_V = makeVariable(random_sax_image, type='float',
-                                                      use_gpu=use_gpu, requires_grad=True)
+                                                      use_gpu=use_gpu, requires_grad=False)
                     # use STN's performance for model selection
                     segmentation_model.evaluate(input=random_sax_image_V,
                                                 targets_npy=random_sax_gt.numpy(), n_iter=2)
@@ -392,7 +392,7 @@ if __name__ == '__main__':
                                               use_cache=data_opt['use_cache'],
                                               myocardium_seg=data_opt['myocardium_only'],
                                               right_ventricle_seg=data_opt['right_ventricle_only'],
-                                              keep_orig_image_label_pair=False)
+                                              keep_orig_image_label_pair=True)
 
             train_set_list.append(train_set)
             validate_set_list.append(validate_set)
@@ -407,7 +407,7 @@ if __name__ == '__main__':
                                               use_cache=data_opt['use_cache'],
                                               myocardium_seg=data_opt['myocardium_only'],
                                               right_ventricle_seg=data_opt['right_ventricle_only'],
-                                              ) if track_test_flag else None
+                                              )
                 test_set_list.append(test_set)
         if len(frame_list) > 1:
             train_set = ConcatDataSet(dataset_list=train_set_list)
