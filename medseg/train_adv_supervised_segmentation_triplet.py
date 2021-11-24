@@ -60,11 +60,28 @@ def get_batch(dataiter, train_loader, use_gpu=True, keep_origin=True):
     return image_l, label_l, unlabelled_batch, dataiter
 
 
+def eval_model(segmentation_model, validate_loader, val_dataiter, keep_origin=True):
+    segmentation_model.running_metric.reset()
+    for b_iter in range(len(validate_loader)):
+        clean_image_l, label_l, unlabelled_batch, val_dataiter = get_batch(
+            val_dataiter, validate_loader, keep_origin=keep_origin, use_gpu=use_gpu)
+        random_sax_image_V = makeVariable(clean_image_l, type='float',
+                                          use_gpu=use_gpu, requires_grad=False)
+        # use STN's performance for model selection
+        segmentation_model.evaluate(input=random_sax_image_V,
+                                    targets_npy=label_l.cpu().data.numpy(), n_iter=2)
+    score = print_metric(segmentation_model.running_metric,
+                         name=experiment_name)
+    curr_score = score['Mean IoU : \t']
+    curr_acc = score['Mean Acc : \t']
+    return curr_score, curr_acc
+
+
 def train_network(experiment_name, dataset,
                   segmentation_solver,
                   experiment_opt,
                   log=False,
-                  debug=False):
+                  debug=False, use_gpu=True):
     '''
 
     :param experiment_name:
@@ -80,7 +97,6 @@ def train_network(experiment_name, dataset,
     # =========================dataset config==================================================#
     train_set = dataset[0]
     validate_set = dataset[1]
-    test_set = dataset[2]
     batch_size = experiment_opt['learning']["batch_size"]
     if experiment_opt['data']['keep_orig_image_label_pair_for_training']:
         batch_size /= 2.0
@@ -92,11 +108,7 @@ def train_network(experiment_name, dataset,
                               pin_memory=not training_opt.no_pin_memory, worker_init_fn=seed_worker, generator=g)
     validate_loader = DataLoader(dataset=validate_set, num_workers=training_opt.n_workers, batch_size=int(batch_size), shuffle=False,
                                  drop_last=False, pin_memory=not training_opt.no_pin_memory, worker_init_fn=seed_worker, generator=g)
-    if test_set is not None:
-        test_loader = DataLoader(dataset=test_set, num_workers=training_opt.n_workers, batch_size=int(batch_size), shuffle=False,
-                                 drop_last=False, pin_memory=not training_opt.no_pin_memory, worker_init_fn=seed_worker, generator=g)
-    else:
-        test_loader = None
+
     best_score = -10000
 
     if log:
@@ -126,6 +138,8 @@ def train_network(experiment_name, dataset,
     stop_flag = False
     score_list = []
     dataiter = iter(train_loader)
+    val_dataiter = iter(validate_loader)
+
     keep_origin = experiment_opt['data']['keep_orig_image_label_pair_for_training']
 
     segmentation_solver.reset_all_optimizers()
@@ -157,12 +171,12 @@ def train_network(experiment_name, dataset,
                 clean_image_l, label_l, unlabelled_batch, dataiter = get_batch(
                     dataiter, train_loader, keep_origin=keep_origin, use_gpu=use_gpu)
                 clean_image_l = makeVariable(
-                    clean_image_l, use_gpu=True, requires_grad=False, type='float')
+                    clean_image_l, use_gpu=use_gpu, requires_grad=False, type='float')
                 batch_4d_size = clean_image_l.size()
                 # add noise to input to train the FTN (same as training a denoising autoencoder)
                 noise = 0.05 * torch.randn(batch_4d_size[0], batch_4d_size[1], batch_4d_size[2],
                                            batch_4d_size[3], device=clean_image_l.device, dtype=clean_image_l.dtype)
-                image_l = makeVariable((clean_image_l + noise).detach().clone(), use_gpu=True,
+                image_l = makeVariable((clean_image_l + noise).detach().clone(), use_gpu=use_gpu,
                                        requires_grad=False, type='float')
                 # step 2: standard training
                 seg_loss, image_recon_loss, gt_recon_loss, shape_recon_loss = segmentation_solver.standard_training(
@@ -223,38 +237,13 @@ def train_network(experiment_name, dataset,
                         loss_name, (loss_value / (1.0 * g_count)), i_epoch)
 
             # =========================<<<<<start evaluating>>>>>>>>=============================>
-            def eval_model(segmentation_model, validate_loader):
-                segmentation_model.running_metric.reset()
-                for b_iter, batch in enumerate(validate_loader):
-                    random_sax_image, random_sax_gt = batch['image'], batch['label']
-                    random_sax_image_V = makeVariable(random_sax_image, type='float',
-                                                      use_gpu=use_gpu, requires_grad=False)
-                    # use STN's performance for model selection
-                    segmentation_model.evaluate(input=random_sax_image_V,
-                                                targets_npy=random_sax_gt.numpy(), n_iter=2)
-
-                score = print_metric(
-                    segmentation_model.running_metric, name=experiment_name)
-                # keep the best model
-                curr_score = score['Mean IoU : \t']
-                curr_acc = score['Mean Acc : \t']
-                return curr_score, curr_acc
-
             curr_score, curr_acc = eval_model(
-                segmentation_solver, validate_loader)
+                segmentation_solver, validate_loader, val_dataiter, keep_origin=keep_origin)
             score_list.append(curr_score)
 
             if log:
                 writer.add_scalar('iou/val_iou', curr_score, i_epoch)
                 writer.add_scalar('acc/val_acc', curr_acc, i_epoch)
-
-            if test_loader is not None:
-                curr_test_score, curr_test_acc = eval_model(
-                    segmentation_solver, test_loader)
-                if log:
-                    writer.add_scalar('iou/test_iou', curr_score, i_epoch)
-                    writer.add_scalar('acc/test_acc', curr_acc, i_epoch)
-
             # save best models
             if best_score < curr_score:
                 best_score = curr_score
@@ -314,9 +303,6 @@ if __name__ == '__main__':
     # visualizing the training/test performance
     parser.add_argument("--log", action='store_true', default=False,
                         help='use tensorboardX to tracking the training and testing curve')
-    # for real-time test set evaluation. must not used for hyperparameter search.
-    parser.add_argument("--track_test", action='store_true', default=False,
-                        help='perform evaluation on test data')
     # advanced setting
     parser.add_argument("--seed", type=int, default=None,
                         help="set seed to reduce randomness in training")
@@ -349,12 +335,10 @@ if __name__ == '__main__':
     data_opt = experiment_opt['data']
     data_aug_policy_name = data_opt["data_aug_policy"]
     crop_size = data_opt['crop_size']
-    track_test_flag = training_opt.track_test
     # ========================= initialize training settings==================================================#
     tr = Transformations(data_aug_policy_name=data_opt["data_aug_policy"], pad_size=data_opt['pad_size'],
                          crop_size=data_opt['crop_size']).get_transformation()
 
-    test_set = None
     if 'ACDC' in data_opt['dataset_name']:
         frame = subset_name = data_opt['frame']
         if isinstance(frame, list):
@@ -365,7 +349,6 @@ if __name__ == '__main__':
             frame_list) <= 2, 'currently, only support concat two sets, please check your [frame] in the config file'
         train_set_list = []
         validate_set_list = []
-        test_set_list = []
 
         for frame in frame_list:
             train_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
@@ -375,12 +358,12 @@ if __name__ == '__main__':
                                            data_setting_name=training_opt.data_setting,
                                            cval=training_opt.cval,
                                            keep_orig_image_label_pair=data_opt[
-                                               'keep_orig_image_label_pair_for_training'],
-                                           use_cache=data_opt['use_cache'],
-                                           myocardium_seg=data_opt['myocardium_only'],
-                                           right_ventricle_seg=data_opt['right_ventricle_only'],
+                'keep_orig_image_label_pair_for_training'],
+                use_cache=data_opt['use_cache'],
+                myocardium_seg=data_opt['myocardium_only'],
+                right_ventricle_seg=data_opt['right_ventricle_only'],
 
-                                           )
+            )
 
             validate_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
                                               image_format_name=data_opt["image_format_name"],
@@ -396,35 +379,19 @@ if __name__ == '__main__':
 
             train_set_list.append(train_set)
             validate_set_list.append(validate_set)
-            if track_test_flag:
-                test_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
-                                              image_format_name=data_opt["image_format_name"],
-                                              label_format_name=data_opt["label_format_name"],
-                                              transform=tr['validate'], subset_name=frame, split='test',
-                                              data_setting_name=training_opt.data_setting,
-                                              cval=training_opt.cval,
-                                              keep_orig_image_label_pair=False,
-                                              use_cache=data_opt['use_cache'],
-                                              myocardium_seg=data_opt['myocardium_only'],
-                                              right_ventricle_seg=data_opt['right_ventricle_only'],
-                                              )
-                test_set_list.append(test_set)
+
         if len(frame_list) > 1:
             train_set = ConcatDataSet(dataset_list=train_set_list)
             validate_set = ConcatDataSet(dataset_list=validate_set_list)
-            if track_test_flag:
-                test_set = ConcatDataSet(dataset_list=test_set_list)
         else:
+            train_set = train_set_list[0]
+            validate_set = validate_set_list[0]
             del train_set_list
             del validate_set_list
-            if track_test_flag:
-                del test_set_list
-
     else:
+        print('only support ACDC dataset for training currently')
         raise NotImplementedError
-
-    combined_dataset = train_set
-    datasets = [combined_dataset, validate_set, test_set]
+    datasets = [train_set, validate_set]
 
     # ========================Define models==================================================#
     num_classes = experiment_opt['segmentation_model']["num_classes"]
@@ -473,5 +440,4 @@ if __name__ == '__main__':
         if last_epoch > 0:
             save_path = segmentation_solver.save_snapshots(
                 model_dir, epoch=last_epoch)
-            print('save snapshots at epoch {} to {}'.format(
-                str(last_epoch), save_path))
+            print(f'save snapshots at epoch {last_epoch} to {save_path}')
