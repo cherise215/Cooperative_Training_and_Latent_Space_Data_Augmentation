@@ -117,15 +117,19 @@ if __name__ == '__main__':
     num_classes = 4
     network_type = 'FCN_16_standard'
     n_iter = 2  # 1 for FTN's prediction, 2 for FTN+STN's refinements
-    cval_id_list = [0, 1, 2]
+    cval_id_list = [0]
 
     test_dataset_name_list = [
         'ACDC', 'MM', 'RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']
     for cval_id in cval_id_list:
         # change your path here
         segmentor_resume_dir_dict = {
-            'standard': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test/{cval_id}/model/best/checkpoints',
-            'cooperative': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test/{cval_id}/model/best/checkpoints'
+            'standard_training_test_no_noise': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test_no_noise/{cval_id}/model/best/checkpoints',
+            'cooperative_training_test_no_noise': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_noise/{cval_id}/model/best/checkpoints',
+            # 'cooperative': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_aug_val/{cval_id}/model/best/checkpoints',
+            'standard_new': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training/{cval_id}/model/best/checkpoints',
+            'cooperative_new': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training/{cval_id}/model/best/checkpoints'
+            # }
         }
 
         # load model

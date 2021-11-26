@@ -17,7 +17,7 @@ from medseg.models.model_util import _disable_tracking_bn_stats, makeVariable, m
 from medseg.models.custom_loss import basic_loss_fn
 
 from medseg.common_utils.metrics import runningScore
-from medseg.common_utils.basic_operations import construct_input, set_grad
+from medseg.common_utils.basic_operations import construct_input, set_grad, rescale_intensity
 from medseg.common_utils.save import save_testing_images_results
 
 
@@ -97,7 +97,7 @@ class AdvancedTripletReconSegmentationModel(nn.Module):
                                              feature_reduce=reduce_factor, if_SN=False, decoder_dropout=self.decoder_dropout, norm=nn.BatchNorm2d)
 
             image_decoder = MyDecoder(input_channel=512 // reduce_factor, up_type='Conv2', output_channel=self.image_ch,
-                                      feature_reduce=reduce_factor, if_SN=False, decoder_dropout=self.decoder_dropout, norm=nn.BatchNorm2d)
+                                      feature_reduce=reduce_factor, if_SN=False, decoder_dropout=self.decoder_dropout, norm=nn.BatchNorm2d, last_act=nn.Sigmoid())
 
             # STN
             shape_encoder = MyEncoder(input_channel=shape_inc_ch, output_channel=512 // reduce_factor, feature_reduce=reduce_factor,

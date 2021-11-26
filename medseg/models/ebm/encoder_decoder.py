@@ -22,17 +22,21 @@ class res_convdown(nn.Module):
         super(res_convdown, self).__init__()
         # down-> conv3->prelu->conv
         if if_SN:
-            self.down = spectral_norm(nn.Conv2d(in_ch, in_ch, 3, stride=2, padding=1, bias=bias))
+            self.down = spectral_norm(
+                nn.Conv2d(in_ch, in_ch, 3, stride=2, padding=1, bias=bias))
 
             self.conv = nn.Sequential(
-                spectral_norm(nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=bias)),
+                spectral_norm(
+                    nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=bias)),
                 norm(out_ch),
                 nn.LeakyReLU(0.2),
-                spectral_norm(nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=bias)),
+                spectral_norm(nn.Conv2d(out_ch, out_ch,
+                                        3, padding=1, bias=bias)),
                 norm(out_ch),
             )
         else:
-            self.down = (nn.Conv2d(in_ch, in_ch, 3, stride=2, padding=1, bias=bias))
+            self.down = (nn.Conv2d(in_ch, in_ch, 3,
+                                   stride=2, padding=1, bias=bias))
 
             self.conv = nn.Sequential(
                 nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=bias),
@@ -42,9 +46,11 @@ class res_convdown(nn.Module):
                 norm(out_ch),
             )
         if if_SN:
-            self.conv_input = spectral_norm(nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias))
+            self.conv_input = spectral_norm(
+                nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias))
         else:
-            self.conv_input = nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
+            self.conv_input = nn.Conv2d(
+                in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
 
         self.last_act = nn.LeakyReLU(0.2)
         self.dropout = dropout
@@ -228,16 +234,19 @@ class res_NN_up(nn.Module):
         # up-> conv3->prelu->conv
         self.up = nn.Sequential(
             nn.UpsamplingNearest2d(scale_factor=2),
-            nn.Conv2d(in_ch, in_ch, kernel_size=3, stride=1, padding=1, bias=bias)
+            nn.Conv2d(in_ch, in_ch, kernel_size=3,
+                      stride=1, padding=1, bias=bias)
         )
 
         if if_SN:
 
             self.conv = nn.Sequential(
-                spectral_norm(nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=bias), dim=1),
+                spectral_norm(nn.Conv2d(in_ch, out_ch, 3,
+                                        padding=1, bias=bias), dim=1),
                 norm(out_ch),
                 nn.LeakyReLU(0.2),
-                spectral_norm(nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=bias), dim=1),
+                spectral_norm(nn.Conv2d(out_ch, out_ch, 3,
+                                        padding=1, bias=bias), dim=1),
                 norm(out_ch),
             )
         else:
@@ -254,7 +263,8 @@ class res_NN_up(nn.Module):
             self.conv_input = spectral_norm(nn.Conv2d(in_ch, out_ch, kernel_size=1,
                                                       stride=1, padding=0, bias=bias), dim=1)
         else:
-            self.conv_input = nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
+            self.conv_input = nn.Conv2d(
+                in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
 
         self.last_act = nn.LeakyReLU(0.2)
         self.dropout = dropout
@@ -272,7 +282,7 @@ class res_NN_up(nn.Module):
 
 class res_up_family(nn.Module):
     '''
-    upscale with different upsampling methods 
+    upscale with different upsampling methods
     '''
 
     def __init__(self, in_ch, out_ch, norm=nn.InstanceNorm2d, if_SN=False, bias=True, dropout=None, up_type='bilinear'):
@@ -289,17 +299,20 @@ class res_up_family(nn.Module):
         elif up_type == 'Conv2':
             self.up = nn.ConvTranspose2d(in_ch, in_ch, kernel_size=2, stride=2)
         elif up_type == 'Conv4':
-            self.up = nn.ConvTranspose2d(in_ch, in_ch, kernel_size=4, stride=2, padding=1)
+            self.up = nn.ConvTranspose2d(
+                in_ch, in_ch, kernel_size=4, stride=2, padding=1)
         else:
             raise NotImplementedError
 
         if if_SN:
 
             self.conv = nn.Sequential(
-                spectral_norm(nn.Conv2d(in_ch, out_ch, 3, padding=1, bias=bias), dim=1),
+                spectral_norm(nn.Conv2d(in_ch, out_ch, 3,
+                                        padding=1, bias=bias), dim=1),
                 norm(out_ch),
                 nn.LeakyReLU(0.2),
-                spectral_norm(nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=bias), dim=1),
+                spectral_norm(nn.Conv2d(out_ch, out_ch, 3,
+                                        padding=1, bias=bias), dim=1),
                 norm(out_ch),
             )
         else:
@@ -316,7 +329,8 @@ class res_up_family(nn.Module):
             self.conv_input = spectral_norm(nn.Conv2d(in_ch, out_ch, kernel_size=1,
                                                       stride=1, padding=0, bias=bias), dim=1)
         else:
-            self.conv_input = nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
+            self.conv_input = nn.Conv2d(
+                in_ch, out_ch, kernel_size=1, stride=1, padding=0, bias=bias)
 
         self.last_act = nn.LeakyReLU(0.2)
         self.dropout = dropout
@@ -334,7 +348,7 @@ class res_up_family(nn.Module):
 
 class MyEncoder(nn.Module):
     '''
-    Naive Encoder 
+    Naive Encoder
     '''
 
     def __init__(self, input_channel, output_channel=None, feature_reduce=1, encoder_dropout=None, norm=nn.InstanceNorm2d, if_SN=False, act=torch.nn.Sigmoid()):
@@ -342,18 +356,22 @@ class MyEncoder(nn.Module):
 
         if if_SN:
             self.inc = nn.Sequential(
-                spectral_norm(nn.Conv2d(input_channel, 64 // feature_reduce, 3, padding=1, bias=True)),
+                spectral_norm(nn.Conv2d(input_channel, 64 //
+                                        feature_reduce, 3, padding=1, bias=True)),
                 norm(64 // feature_reduce),
                 nn.LeakyReLU(0.2),
-                nn.Conv2d(64 // feature_reduce, 64 // feature_reduce, 3, padding=1, bias=True),
+                nn.Conv2d(64 // feature_reduce, 64 //
+                          feature_reduce, 3, padding=1, bias=True),
                 norm(64 // feature_reduce),
             )
         else:
             self.inc = nn.Sequential(
-                nn.Conv2d(input_channel, 64 // feature_reduce, 3, padding=1, bias=True),
+                nn.Conv2d(input_channel, 64 // feature_reduce,
+                          3, padding=1, bias=True),
                 norm(64 // feature_reduce),
                 nn.LeakyReLU(0.2),
-                nn.Conv2d(64 // feature_reduce, 64 // feature_reduce, 3, padding=1, bias=True),
+                nn.Conv2d(64 // feature_reduce, 64 //
+                          feature_reduce, 3, padding=1, bias=True),
                 norm(64 // feature_reduce),
             )
 
@@ -367,11 +385,13 @@ class MyEncoder(nn.Module):
                                   norm=norm, if_SN=if_SN, dropout=encoder_dropout)
         if output_channel is None:
             self.final_conv = nn.Sequential(
-                nn.Conv2d(512 // feature_reduce, 512 // feature_reduce, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(512 // feature_reduce, 512 // feature_reduce,
+                          kernel_size=1, stride=1, padding=0),
                 norm(512 // feature_reduce))
         else:
             self.final_conv = nn.Sequential(
-                nn.Conv2d(512 // feature_reduce, 512 // feature_reduce, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(512 // feature_reduce, 512 // feature_reduce,
+                          kernel_size=1, stride=1, padding=0),
                 norm(512 // feature_reduce))
 
         self.act = act
@@ -398,7 +418,7 @@ class MyDecoder(nn.Module):
 
     '''
 
-    def __init__(self, input_channel, output_channel, feature_reduce=1, decoder_dropout=None, norm=nn.InstanceNorm2d, up_type='bilinear', if_SN=False):
+    def __init__(self, input_channel, output_channel, feature_reduce=1, decoder_dropout=None, norm=nn.InstanceNorm2d, up_type='bilinear', if_SN=False, last_act=None):
         super(MyDecoder, self).__init__()
         self.up1 = res_up_family(input_channel, 256 // feature_reduce, norm=norm,
                                  up_type=up_type, dropout=decoder_dropout, if_SN=if_SN)
@@ -414,7 +434,9 @@ class MyDecoder(nn.Module):
             self.final_conv = spectral_norm(
                 nn.Conv2d(64 // feature_reduce, output_channel, kernel_size=1, stride=1, padding=0))
         else:
-            self.final_conv = nn.Conv2d(64 // feature_reduce, output_channel, kernel_size=1, stride=1, padding=0)
+            self.final_conv = nn.Conv2d(
+                64 // feature_reduce, output_channel, kernel_size=1, stride=1, padding=0)
+        self.last_act = last_act
         for m in self._modules:
             normal_init(self._modules[m], 0, 0.02)
 
@@ -424,6 +446,8 @@ class MyDecoder(nn.Module):
         x4 = self.up3(x3)
         x5 = self.up4(x4)
         x5 = self.final_conv(x5)
+        if self.last_act is not None:
+            x5 = self.last_act(x5)
         return x5
 
 
@@ -440,10 +464,12 @@ class Dual_Branch_Encoder(nn.Module):
 
         if not if_SN:
             self.code_decoupler = nn.Sequential(
-                nn.Conv2d(z_level_1_channel, z_level_2_channel, 3, padding=1, bias=False),
+                nn.Conv2d(z_level_1_channel, z_level_2_channel,
+                          3, padding=1, bias=False),
                 norm(z_level_2_channel),
                 nn.LeakyReLU(0.2),
-                nn.Conv2d(z_level_2_channel, z_level_2_channel, 3, padding=1, bias=False),
+                nn.Conv2d(z_level_2_channel, z_level_2_channel,
+                          3, padding=1, bias=False),
                 norm(z_level_2_channel),
                 nn.ReLU(),
 
@@ -451,10 +477,12 @@ class Dual_Branch_Encoder(nn.Module):
             )
         else:
             self.code_decoupler = nn.Sequential(
-                spectral_norm(nn.Conv2d(z_level_1_channel, z_level_2_channel, 3, padding=1, bias=False)),
+                spectral_norm(nn.Conv2d(z_level_1_channel,
+                                        z_level_2_channel, 3, padding=1, bias=False)),
                 norm(z_level_2_channel),
                 nn.LeakyReLU(0.2),
-                spectral_norm(nn.Conv2d(z_level_2_channel, z_level_2_channel, 3, padding=1, bias=False)),
+                spectral_norm(nn.Conv2d(z_level_2_channel,
+                                        z_level_2_channel, 3, padding=1, bias=False)),
                 norm(z_level_2_channel),
                 nn.ReLU(),
 

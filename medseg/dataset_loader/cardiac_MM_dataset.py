@@ -38,8 +38,7 @@ class Cardiac_MM_Dataset(BaseSegDataset):
                  label_format_name=LABEL_FORMAT_NAME,
                  new_spacing=None,
                  myocardium_seg=False,
-                 lazy_load=False,
-                 normalize=False
+                 normalize3D=False
                  ):
         # predefined variables
         # initialization
@@ -53,14 +52,9 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         self.root_dir = root_dir
         self.image_format_name = image_format_name
         self.label_format_name = label_format_name
-        self.normalize = normalize
-        if lazy_load is True:
-            self.datasize = 0
-            self.patient_id_list = []
-            self.index2pid_dict = {}
-            self.index2slice_dict = {}
-        else:
-            self.datasize, self.patient_id_list, self.index2pid_dict, self.index2slice_dict = self.scan_dataset()
+        self.normalize3D = normalize3D
+
+        self.datasize, self.patient_id_list, self.index2pid_dict, self.index2slice_dict = self.scan_dataset()
 
         self.temp_data_dict = None  # temporary data during loading
         self.p_id = 0  # current pid
@@ -104,7 +98,7 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         if self.debug:
             print(patient_id)
         image, label, sitkImage, sitkLabel = self.load_patientImage_from_nrrd(
-            patient_id, new_spacing=self.new_spacing, normalize=self.normalize)
+            patient_id, new_spacing=self.new_spacing, normalize=self.normalize3D)
 
         image = image[slice_id]
         label = label[slice_id]
@@ -172,7 +166,7 @@ class Cardiac_MM_Dataset(BaseSegDataset):
         '''
         self.p_id = self.patient_id_list[pid_index]
         image, label, sitkImage, sitkLabel = self.load_patientImage_from_nrrd(
-            self.p_id, new_spacing=self.new_spacing, normalize=self.normalize)
+            self.p_id, new_spacing=self.new_spacing, normalize=self.normalize3D)
         if crop_size is not None:
             image, label, h_s, w_s, h, w = crop_or_pad(image, crop_size, label)
 

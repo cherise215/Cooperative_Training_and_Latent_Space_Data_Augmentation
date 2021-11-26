@@ -98,13 +98,18 @@ def train_network(experiment_name, dataset,
     train_set = dataset[0]
     validate_set = dataset[1]
     batch_size = experiment_opt['learning']["batch_size"]
+    assert batch_size >= 1, f'batch size must >=1, but got {batch_size}'
     if experiment_opt['data']['keep_orig_image_label_pair_for_training']:
-        batch_size /= 2.0
+        train_batch_size = batch_size//2
+        if train_batch_size == 0:
+            train_batch_size = 1
+    else:
+        train_batch_size = batch_size
 
     g = torch.Generator()
     if training_opt.seed is not None:
         g.manual_seed(training_opt.seed)
-    train_loader = DataLoader(dataset=train_set, num_workers=training_opt.n_workers, batch_size=int(batch_size), shuffle=True, drop_last=False,
+    train_loader = DataLoader(dataset=train_set, num_workers=training_opt.n_workers, batch_size=int(train_batch_size), shuffle=True, drop_last=False,
                               pin_memory=not training_opt.no_pin_memory, worker_init_fn=seed_worker, generator=g)
     validate_loader = DataLoader(dataset=validate_set, num_workers=training_opt.n_workers, batch_size=int(batch_size), shuffle=False,
                                  drop_last=False, pin_memory=not training_opt.no_pin_memory, worker_init_fn=seed_worker, generator=g)
@@ -176,7 +181,8 @@ def train_network(experiment_name, dataset,
                 # add noise to input to train the FTN (same as training a denoising autoencoder)
                 noise = 0.05 * torch.randn(batch_4d_size[0], batch_4d_size[1], batch_4d_size[2],
                                            batch_4d_size[3], device=clean_image_l.device, dtype=clean_image_l.dtype)
-                image_l = makeVariable((clean_image_l + noise).detach().clone(), use_gpu=use_gpu,
+                image_l = torch.clamp(clean_image_l + noise, 0, 1)
+                image_l = makeVariable(image_l.detach().clone(), use_gpu=use_gpu,
                                        requires_grad=False, type='float')
                 # step 2: standard training
                 seg_loss, image_recon_loss, gt_recon_loss, shape_recon_loss = segmentation_solver.standard_training(
@@ -238,7 +244,7 @@ def train_network(experiment_name, dataset,
 
             # =========================<<<<<start evaluating>>>>>>>>=============================>
             curr_score, curr_acc = eval_model(
-                segmentation_solver, validate_loader, val_dataiter, keep_origin=keep_origin)
+                segmentation_solver, validate_loader, val_dataiter, keep_origin=False)
             score_list.append(curr_score)
 
             if log:
@@ -368,14 +374,14 @@ if __name__ == '__main__':
             validate_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
                                               image_format_name=data_opt["image_format_name"],
                                               label_format_name=data_opt["label_format_name"],
-                                              transform=tr['train'], subset_name=frame,
+                                              transform=tr['validate'], subset_name=frame,
                                               split='validate',
                                               data_setting_name=training_opt.data_setting,
                                               cval=training_opt.cval,
                                               use_cache=data_opt['use_cache'],
                                               myocardium_seg=data_opt['myocardium_only'],
                                               right_ventricle_seg=data_opt['right_ventricle_only'],
-                                              keep_orig_image_label_pair=True)
+                                              keep_orig_image_label_pair=False)
 
             train_set_list.append(train_set)
             validate_set_list.append(validate_set)

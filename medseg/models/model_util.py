@@ -431,20 +431,18 @@ def _disable_tracking_bn_stats(model):
                 old_states[name] = module.track_running_stats
                 if hist_states is not None:
                     module.track_running_stats = hist_states[name]
-                    # module.train(hist_states[name])
-                    # print(f'bn: {hist_states[name]}')
-                    # if hasattr(module, 'weight'):
-                    #     module.weight.requires_grad_(hist_states[name])
-                    # if hasattr(module, 'bias'):
-                    #     module.bias.requires_grad_(hist_states[name])
+                    # disable optimizing the beta and gamma for feature normalization
+                    if hasattr(module, 'weight'):
+                        module.weight.requires_grad_(hist_states[name])
+                    if hasattr(module, 'bias'):
+                        module.bias.requires_grad_(hist_states[name])
                 else:
                     if new_state is not None:
-                        # module.train(new_state)
                         module.track_running_stats = new_state
-                        # if hasattr(module, 'weight'):
-                        #     module.weight.requires_grad_(new_state)
-                        # if hasattr(module, 'bias'):
-                        #     module.bias.requires_grad_(new_state)
+                        if hasattr(module, 'weight'):
+                            module.weight.requires_grad_(new_state)
+                        if hasattr(module, 'bias'):
+                            module.bias.requires_grad_(new_state)
 
         return old_states
 

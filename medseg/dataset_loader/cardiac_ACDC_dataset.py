@@ -86,8 +86,9 @@ class CardiacACDCDataset(BaseSegDataset):
             self.patient_id_list = []
             self.index2pid_dict = {}
             self.index2slice_dict = {}
-        else:
-            self.datasize, self.patient_id_list, self.index2pid_dict, self.index2slice_dict = self.scan_dataset()
+
+        self.datasize, self.patient_id_list, self.index2pid_dict, self.index2slice_dict = self.scan_dataset(
+            root_dir=self.root_dir, image_format_name=image_format_name, data_setting_name=data_setting_name, cval=cval, split=split)
 
         self.temp_data_dict = None  # temporary data during loading
         self.p_id = 0  # current pid
@@ -177,21 +178,21 @@ class CardiacACDCDataset(BaseSegDataset):
 
         return img_arr, label_arr, sitkImage, sitkLabel
 
-    def scan_dataset(self):
+    def scan_dataset(self, root_dir, image_format_name, data_setting_name, cval, split):
         '''
         given the data setting names and split, cross validation id
         :return: dataset size, a list of pids for training/testing/validation, and a dict for retrieving patient id and slice id.
         '''
 
         patient_id_list = get_ACDC_split_policy(
-            identifier=self.data_setting_name, cval=self.cval)[self.split]
+            identifier=data_setting_name, cval=cval)[split]
         # print ('{} set has {} patients'.format(self.split,len(patient_id_list)))
         index2pid_dict = {}
         index2slice_dict = {}
         cur_ind = 0
         for pid in patient_id_list:
             img_path = os.path.join(
-                self.root_dir, self.image_format_name.format(p_id=pid))
+                root_dir, image_format_name.format(p_id=pid))
             if not os.path.exists(img_path):
                 continue
             ndarray = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
@@ -256,7 +257,7 @@ if __name__ == '__main__':
                          pad_size=image_size, crop_size=crop_size).get_transformation()
     dataset = CardiacACDCDataset(data_setting_name='standard', split='validate',
                                  transform=tr['train'], num_classes=4, right_ventricle_seg=True,
-                                 root_dir='/vol/medic01/users/cc215/Dropbox/projects/DeformADA/Data/bias_corrected_and_normalized')
+                                 root_dir='/vol/biomedic3/cc215/data/ACDC/preprocessed')
     train_loader = DataLoader(
         dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
 
