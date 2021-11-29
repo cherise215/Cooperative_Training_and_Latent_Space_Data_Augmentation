@@ -127,6 +127,8 @@ def train_network(experiment_name, dataset,
     latentDA_config = experiment_opt["latent_DA"]
     gen_corrupted_image = False
     gen_corrupted_seg = False
+    corrupted_seg_DA_config = None
+    corrupted_image_DA_config = None
     if latent_DA:
         print('latent code masking configurations')
         if 'image code' in latentDA_config["mask_scope"]:
