@@ -63,26 +63,27 @@ For more details please see our paper on [arXiv](https://arxiv.org/abs/2107.0107
   - Intensity normalization: image intensities are normalized to (0,1)
   - Image resampling: resample images to have a uniform pixel spacing [1.36719, 1.36719]
 
-  * We are happy to provide preprocessed data upon request as long as this is allowed by the datasets organizers.
+  * We are happy to provide preprocessed data upon request as long as this is allowed by the datasets organizers. Please note, users are encouraged to rerun experiments on their own machines for fair comparison instead of directly coping all numbers from the paper. We have also optimized our framework accordingly to improve the performance of baseline methods, while the core component, i.e., latent code masking remain the same for consistency.
 
 - ACDC dataset has been reorganised as follows:
 
   - ACDC_root_dir
-
-    - ED
-
-      - 001_img.nrrd
-      - 001_seg.nrrd
-        ...
-      - 100_img.nrrd
-      - 100_seg.nrrd
-
-    - ES
-      - 001_img.nrrd
-      - 001_seg.nrrd
-        ...
-      - 100_img.nrrd
-      - 100_seg.nrrd
+    - 001
+      - ED_img.nii.gz
+      - ED_seg.nii.gz
+      - ES_img.nii.gz
+      - ES_seg.nii.gz
+    - 002
+      - ED_img.nii.gz
+      - ED_seg.nii.gz
+      - ES_img.nii.gz
+      - ES_seg.nii.gz
+      ...
+    - 100 
+      - ED_img.nii.gz
+      - ED_seg.nii.gz
+      - ES_img.nii.gz
+      - ES_seg.nii.gz
 
 ## Usage
 

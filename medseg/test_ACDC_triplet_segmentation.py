@@ -16,36 +16,40 @@ from medseg.dataset_loader.transform import Transformations
 from medseg.dataset_loader.base_segmentation_dataset import ConcatDataSet
 from medseg.common_utils.basic_operations import check_dir
 
+## change your data root dir here!
+PROJECT_DATA_ROOT_DIR = '/vol/biomedic3/cc215/data/MICCAI2021_multi_domain_robustness_datasets'
 
+## test data cropping
 pad_size = [224, 224, 1]
 crop_size = [192, 192, 1]
-
-
-def get_testset(test_dataset_name, frames=['ED', 'ES']):
-    data_aug_policy_name = 'no_aug'
-    tr = Transformations(data_aug_policy_name=data_aug_policy_name, pad_size=pad_size,
-                         crop_size=crop_size).get_transformation()
-    IDX2CLASS_DICT = {
+IDX2CLASS_DICT = {
         0: 'BG',
         1: 'LV',
         2: 'MYO',
         3: 'RV',
     }
+def get_testset(test_dataset_name, frames=['ED', 'ES']):
+    data_aug_policy_name = 'no_aug'
+    tr = Transformations(data_aug_policy_name=data_aug_policy_name, pad_size=pad_size,
+                         crop_size=crop_size).get_transformation()
+
     formalized_label_dict = IDX2CLASS_DICT
     right_ventricle_seg = False
     testset_list = []
     for frame in frames:
+        IMAGE_FORMAT_NAME = '{p_id}/' + frame + '_img.nii.gz'
+        LABEL_FORMAT_NAME = '{p_id}/' + frame + '_seg.nii.gz'
         if test_dataset_name == 'ACDC':
-            root_dir = '/vol/biomedic3/cc215/data/ACDC/preprocessed'
+            root_dir = f'{PROJECT_DATA_ROOT_DIR}/ACDC'
             test_dataset = CardiacACDCDataset(root_dir=root_dir, transform=tr['validate'], idx2cls_dict=IDX2CLASS_DICT, num_classes=4,
                                               data_setting_name='10', formalized_label_dict=formalized_label_dict,
-                                              subset_name=frame, split='test', myocardium_seg=False,
+                                              frame=frame, split='test', myocardium_seg=False,
+                                              image_format_name=IMAGE_FORMAT_NAME,
+                                              label_format_name=LABEL_FORMAT_NAME,
                                               right_ventricle_seg=right_ventricle_seg,
                                               new_spacing=None)
         elif test_dataset_name == 'MM':
-            root_dir = '/vol/biomedic3/cc215/data/cardiac_MMSeg_challenge/Training-corrected/Labeled'
-            IMAGE_FORMAT_NAME = '{p_id}/' + frame + '_img.nii.gz'
-            LABEL_FORMAT_NAME = '{p_id}/' + frame + '_seg.nii.gz'
+            root_dir = f'{PROJECT_DATA_ROOT_DIR}/MM'
             test_dataset = Cardiac_MM_Dataset(root_dir=root_dir,
                                               transform=tr['validate'], num_classes=4, formalized_label_dict=formalized_label_dict,
                                               idx2cls_dict=IDX2CLASS_DICT,
@@ -54,10 +58,7 @@ def get_testset(test_dataset_name, frames=['ED', 'ES']):
                                               new_spacing=None)
 
         elif test_dataset_name in ['RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']:
-            root_folder = '/vol/biomedic3/cc215/data/ACDC/ACDC_artefacted/{}'.format(
-                test_dataset_name)
-            IMAGE_FORMAT_NAME = '{p_id}/' + frame + '_img.nrrd'
-            LABEL_FORMAT_NAME = '{p_id}/' + frame + '_label.nrrd'
+            root_folder = f'{PROJECT_DATA_ROOT_DIR}/ACDC-C/{test_dataset_name}'
             test_dataset = Cardiac_MM_Dataset(root_dir=root_folder,
                                               dataset_name=test_dataset_name,
                                               transform=tr['validate'], num_classes=4, formalized_label_dict=formalized_label_dict,
@@ -116,22 +117,18 @@ if __name__ == '__main__':
     # model config
     num_classes = 4
     network_type = 'FCN_16_standard'
-    n_iter = 1  # 1 for FTN's prediction, 2 for FTN+STN's refinements
+    n_iter = 2  # 1 for FTN's prediction, 2 for FTN+STN's refinements
     cval_id_list = [0, 1, 2]
 
     test_dataset_name_list = [
-        'ACDC', 'MM', 'RandomGhosting', 'RandomBias', 'RandomSpike', 'RandomMotion']
+        'ACDC', 'RandomBias', 'RandomSpike','RandomGhosting','RandomMotion', 'MM']
+    frames=['ED', 'ES']
     for cval_id in cval_id_list:
         # change your path here
         segmentor_resume_dir_dict = {
             'standard_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test_no_noise/{cval_id}/model/best/checkpoints',
             'cooperative_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_noise/{cval_id}/model/best/checkpoints',
-            'cooperative_training_dropout': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_noise_dropout_only/{cval_id}/model/best/checkpoints',
-            'cooperative_training_test_no_shape_mask': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_noise_no_shape_mask/{cval_id}/model/best/checkpoints',
-            # 'cooperative': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_aug_val/{cval_id}/model/best/checkpoints',
-            # 'standard_new': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training/{cval_id}/model/best/checkpoints',
-            # 'cooperative_new': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training/{cval_id}/model/best/checkpoints'
-            # # }
+         
         }
 
         # load model
@@ -152,22 +149,10 @@ if __name__ == '__main__':
                     segmentor_resume_dir_dict[method_name], 'report')
                 check_dir(save_report_dir, create=True)
                 means, stds, concatenated_df = evaluate(
-                    segmentation_model=model, test_dataset_name=test_dataset_name, method_name=method_name, save_report_dir=save_report_dir)
+                    segmentation_model=model, test_dataset_name=test_dataset_name, frames=frames, method_name=method_name, save_report_dir=save_report_dir)
                 result_summary.append(
                     [test_dataset_name, method_name, means, stds])
                 df_dict[method_name] = concatenated_df
             aggregated_df = pd.DataFrame(data=result_summary, columns=[
                 'dataset', 'method', 'Dice mean', 'Dice std'])
             print(aggregated_df)
-
-        # # conduct student t test between two pandas dataframe and then compute the p value to vis the difference
-        # reference_method = "standard"
-        # reference_df = df_dict[reference_method]
-        # for method_name, df in df_dict.items():
-        #     if method_name != reference_method:
-        #         p_value_dict = {}
-        #         for aclass in ['LV_Dice', 'MYO_Dice', 'RV_Dice']:
-        #             ttest, lv_pval = stats.ttest_rel(df[aclass], reference_df[aclass])
-        #             p_value_dict[aclass] = '{0:.4f}'.format(lv_pval)
-        #         print('--------------------------------P value------------------------')
-        #         print(str(p_value_dict))

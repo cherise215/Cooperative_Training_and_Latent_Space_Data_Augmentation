@@ -61,6 +61,7 @@ def get_batch(dataiter, train_loader, use_gpu=True, keep_origin=True):
 
 
 def eval_model(segmentation_model, validate_loader, val_dataiter, keep_origin=True):
+    segmentation_model.eval()
     segmentation_model.running_metric.reset()
     for b_iter in range(len(validate_loader)):
         clean_image_l, label_l, unlabelled_batch, val_dataiter = get_batch(
@@ -362,7 +363,7 @@ if __name__ == '__main__':
             train_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
                                            image_format_name=data_opt["image_format_name"],
                                            label_format_name=data_opt["label_format_name"],
-                                           transform=tr['train'], subset_name=frame, split='train',
+                                           transform=tr['train'], frame=frame, split='train',
                                            data_setting_name=training_opt.data_setting,
                                            cval=training_opt.cval,
                                            keep_orig_image_label_pair=data_opt[
@@ -376,7 +377,7 @@ if __name__ == '__main__':
             validate_set = CardiacACDCDataset(root_dir=data_opt["root_dir"], num_classes=data_opt["num_classes"],
                                               image_format_name=data_opt["image_format_name"],
                                               label_format_name=data_opt["label_format_name"],
-                                              transform=tr['validate'], subset_name=frame,
+                                              transform=tr['validate'], frame=frame,
                                               split='validate',
                                               data_setting_name=training_opt.data_setting,
                                               cval=training_opt.cval,

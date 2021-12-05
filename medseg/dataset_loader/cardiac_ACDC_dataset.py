@@ -27,8 +27,8 @@ IDX2CLASS_DICT = {
     2: 'MYO',
     3: 'RV',
 }
-IMAGE_FORMAT_NAME = '{p_id}_img.nrrd'
-LABEL_FORMAT_NAME = '{p_id}_seg.nrrd'
+IMAGE_FORMAT_NAME = '{p_id}/{frame}_img.nii.gz'
+LABEL_FORMAT_NAME = '{p_id}/{frame}_seg.nii.gz'
 IMAGE_SIZE = (224, 224, 1)
 LABEL_SIZE = (224, 224)
 
@@ -41,7 +41,7 @@ class CardiacACDCDataset(BaseSegDataset):
     def __init__(self,
                  transform, dataset_name=DATASET_NAME,
                  root_dir='/vol/biomedic3/cc215/data/ACDC/bias_corrected_and_normalized',
-                 subset_name='ES', num_classes=4,
+                 frame='ES', num_classes=4,
                  debug=False,
                  image_size=IMAGE_SIZE,
                  label_size=LABEL_SIZE,
@@ -56,8 +56,7 @@ class CardiacACDCDataset(BaseSegDataset):
                  label_format_name=LABEL_FORMAT_NAME,
                  myocardium_seg=False,
                  right_ventricle_seg=False,
-                 lazy_load=False,
-                 new_spacing=[1.36719, 1.36719, -1], normalize=True
+                 new_spacing=[1.36719, 1.36719, -1], normalize=False
                  ):
         # predefined variables
         # initialization
@@ -74,18 +73,12 @@ class CardiacACDCDataset(BaseSegDataset):
                                                  image_size=image_size, label_size=label_size, idx2cls_dict=idx2cls_dict,
                                                  use_cache=use_cache, formalized_label_dict=formalized_label_dict, keep_orig_image_label_pair=keep_orig_image_label_pair)
         # specific paramters in this dataset
-        self.root_dir = os.path.join(root_dir, subset_name)
-        self.subset_name = subset_name
+        self.root_dir = os.path.join(root_dir)
+        self.frame = frame
         self.image_format_name = image_format_name
         self.label_format_name = label_format_name
         self.normalize = normalize  # normalize 3D data if data are raw. default: false
         self.new_spacing = new_spacing
-
-        if lazy_load is True:
-            self.datasize = 0
-            self.patient_id_list = []
-            self.index2pid_dict = {}
-            self.index2slice_dict = {}
 
         self.datasize, self.patient_id_list, self.index2pid_dict, self.index2slice_dict = self.scan_dataset(
             root_dir=self.root_dir, image_format_name=image_format_name, data_setting_name=data_setting_name, cval=cval, split=split)
@@ -96,12 +89,12 @@ class CardiacACDCDataset(BaseSegDataset):
         self.slice_id = 0
         self.index = 0  # index for selecting which slices
         self.dataset_name = DATASET_NAME + \
-            '_{}_{}_{}'.format(subset_name, data_setting_name, split)
+            '_{}_{}_{}'.format(frame, data_setting_name, split)
         if self.split == 'train':
             self.dataset_name += str(cval)
 
         print('load {},  containing {}, found {} slices'.format(
-            self.dataset_name + self.subset_name, len(self.patient_id_list), self.datasize))
+            self.dataset_name + self.frame, len(self.patient_id_list), self.datasize))
         self.voxelspacing = [1.36719, 1.36719, -1]
 
         if self.new_spacing is not None:
@@ -168,8 +161,10 @@ class CardiacACDCDataset(BaseSegDataset):
         return cur_data_dict
 
     def load_patientImage_from_nrrd(self, patient_id, new_spacing=None, normalize=False):
-        img_name = self.image_format_name.format(p_id=patient_id)
-        label_name = self.label_format_name.format(p_id=patient_id)
+        img_name = self.image_format_name.format(
+            p_id=patient_id, frame=self.frame)
+        label_name = self.label_format_name.format(
+            p_id=patient_id, frame=self.frame)
         img_path = os.path.join(self.root_dir, img_name)
         label_path = os.path.join(self.root_dir, label_name)
         # load data
@@ -192,8 +187,10 @@ class CardiacACDCDataset(BaseSegDataset):
         cur_ind = 0
         for pid in patient_id_list:
             img_path = os.path.join(
-                root_dir, image_format_name.format(p_id=pid))
+                root_dir, image_format_name.format(p_id=pid, frame=self.frame))
+
             if not os.path.exists(img_path):
+                print (f'{img_path} not found')
                 continue
             ndarray = sitk.GetArrayFromImage(sitk.ReadImage(img_path))
             num_slices = ndarray.shape[0]
@@ -242,7 +239,7 @@ class CardiacACDCDataset(BaseSegDataset):
         return the current patient id
         :return:
         '''
-        return self.p_id + "_" + self.subset_name
+        return self.p_id + "_" + self.frame
 
 
 if __name__ == '__main__':
@@ -257,7 +254,8 @@ if __name__ == '__main__':
                          pad_size=image_size, crop_size=crop_size).get_transformation()
     dataset = CardiacACDCDataset(data_setting_name='standard', split='validate',
                                  transform=tr['train'], num_classes=4, right_ventricle_seg=True,
-                                 root_dir='/vol/biomedic3/cc215/data/ACDC/preprocessed')
+                                 frame='ED',
+                                 root_dir='/vol/biomedic3/cc215/data/MICCAI2021_multi_domain_robustness_datasets/ACDC')
     train_loader = DataLoader(
         dataset=dataset, num_workers=0, batch_size=1, shuffle=False, drop_last=True)
 
