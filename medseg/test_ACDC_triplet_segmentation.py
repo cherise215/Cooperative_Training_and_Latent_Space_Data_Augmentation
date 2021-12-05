@@ -126,8 +126,8 @@ if __name__ == '__main__':
     for cval_id in cval_id_list:
         # change your path here
         segmentor_resume_dir_dict = {
-            'standard_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test_no_noise/{cval_id}/model/best/checkpoints',
-            'cooperative_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training_test_no_noise/{cval_id}/model/best/checkpoints',
+            'standard_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/standard_training_test/{cval_id}/model/best/checkpoints',
+            'cooperative_training': f'./saved/train_ACDC_10_n_cls_4/ACDC/cooperative_training/{cval_id}/model/best/checkpoints',
          
         }
 
