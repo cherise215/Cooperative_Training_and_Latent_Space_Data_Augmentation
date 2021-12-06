@@ -1,7 +1,7 @@
 # Domain Generalized, Robust Medical Image Segmentation
 
 This repo contains the pytorch implementation of "Cooperative Training and Latent Space Data Augmentation for Robust Medical Image Segmentation" (MICCAI 2021 Oral).
-[[Video](https://www.youtube.com/watch?v=Q2ipVU-YuwQ)] [[Paper](https://arxiv.org/abs/2107.01079)] [[Poster](https://drive.google.com/file/d/1wU7bHgIyRQJM5rCVpIx89X2XBUBPv0Ug/view?usp=sharing)]
+[[Video](https://www.youtube.com/watch?v=Q2ipVU-YuwQ)] [[Paper](https://arxiv.org/abs/2107.01079)] [[Poster](https://drive.google.com/file/d/1wU7bHgIyRQJM5rCVpIx89X2XBUBPv0Ug/view?usp=sharing)].
 
 ## Introduction
 
@@ -63,10 +63,10 @@ For more details please see our paper on [arXiv](https://arxiv.org/abs/2107.0107
   - Intensity normalization: image intensities are normalized to (0,1)
   - Image resampling: resample images to have a uniform pixel spacing [1.36719, 1.36719]
 
-  * We are happy to provide preprocessed data upon request as long as this is allowed by the datasets organizers. Please note, users are encouraged to rerun experiments on their own machines for fair comparison instead of directly coping all numbers from the paper. We have also optimized our framework accordingly to improve the performance of baseline methods, while the core component, i.e., latent code masking remain the same for consistency.
+  * Comparison: Please note, users are encouraged to run our methods on their own machines for fair comparison instead of directly coping all numbers from the paper. We have also optimized our framework accordingly to improve the performance of baseline methods, while the core component, i.e., latent code masking remain the same for consistency. 
+  * For the access of preprocessed data, please email to: chen.chen15@imperial.ac.uk. Due to data privacy issues, please provide us with the evidence that you have been granted for the use of the specific datasets, e.g. you have registered to use. Apply online: [ACDC](https://www.creatis.insa-lyon.fr/Challenge/acdc/databasesTraining.html), [MnMs](https://www.ub.edu/mnms/). We are happy to provide preprocessed data upon request under the [dataset policy](https://www.ub.edu/mnms/documents/data_use_agreement.pdf) for **research purpose** only. 
 
-- ACDC dataset has been reorganised as follows:
-
+- In our experiments, ACDC and other test datasets have been reorganised as follows:
   - ACDC_root_dir
     - 001
       - ED_img.nii.gz
